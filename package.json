@@ -1,0 +1,21 @@
+{
+  "name": "urban-pulse",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean",
+    "setup": "bash scripts/setup-dev.sh"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.5.0"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "pnpm": {
+    "overrides": {
+      "react-native-worklets": "npm:react-native-worklets-core@^1.6.3"
+    }
+  }
+}

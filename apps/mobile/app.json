@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "Urban Pulse",
+    "slug": "urban-pulse",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "urbanpulse",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": {
+      "backgroundColor": "#2D6A4F",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.urbanpulse.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Urban Pulse needs your location to map trees near you.",
+        "NSLocationAlwaysUsageDescription": "Urban Pulse uses your location to map trees even in the background.",
+        "NSCameraUsageDescription": "Urban Pulse needs camera access to photograph trees for the inventory.",
+        "NSPhotoLibraryUsageDescription": "Urban Pulse needs photo library access to select tree photos."
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Urban Pulse needs your location to map trees near you."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Urban Pulse needs camera access to photograph trees."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Urban Pulse needs photo library access to select tree photos."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

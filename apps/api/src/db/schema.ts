@@ -1,0 +1,165 @@
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  timestamp,
+  doublePrecision,
+  integer,
+  index,
+  pgEnum,
+  date,
+  real,
+} from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+
+export const observationStatusEnum = pgEnum('observation_status', [
+  'pending_upload',
+  'pending_ai',
+  'pending_review',
+  'verified',
+  'rejected',
+]);
+
+export const contractStatusEnum = pgEnum('contract_status', [
+  'draft',
+  'active',
+  'completed',
+  'cancelled',
+]);
+
+export const zoneTypeEnum = pgEnum('zone_type', [
+  'zip_code',
+  'street_corridor',
+]);
+
+export const zoneStatusEnum = pgEnum('zone_status', [
+  'active',
+  'completed',
+  'paused',
+  'upcoming',
+]);
+
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  firebaseUid: varchar('firebase_uid', { length: 128 }).notNull().unique(),
+  email: varchar('email', { length: 255 }),
+  displayName: varchar('display_name', { length: 100 }),
+  avatarUrl: text('avatar_url'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const contracts = pgTable('contracts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  municipalityName: varchar('municipality_name', { length: 200 }).notNull(),
+  contractName: varchar('contract_name', { length: 300 }).notNull(),
+  startDate: date('start_date').notNull(),
+  endDate: date('end_date').notNull(),
+  status: contractStatusEnum('status').default('draft').notNull(),
+  totalBudget: doublePrecision('total_budget'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const contractZones = pgTable(
+  'contract_zones',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    contractId: uuid('contract_id')
+      .references(() => contracts.id)
+      .notNull(),
+    zoneType: zoneTypeEnum('zone_type').notNull(),
+    zoneIdentifier: varchar('zone_identifier', { length: 100 }).notNull(),
+    displayName: varchar('display_name', { length: 200 }).notNull(),
+    // geometry and centerline are managed via raw SQL (PostGIS)
+    bufferMeters: integer('buffer_meters').default(50).notNull(),
+    startCrossStreet: varchar('start_cross_street', { length: 200 }),
+    endCrossStreet: varchar('end_cross_street', { length: 200 }),
+    corridorName: varchar('corridor_name', { length: 200 }),
+    status: zoneStatusEnum('status').default('upcoming').notNull(),
+    progressPercentage: real('progress_percentage').default(0).notNull(),
+    treeTargetCount: integer('tree_target_count'),
+    treesMappedCount: integer('trees_mapped_count').default(0).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    contractIdx: index('contract_zones_contract_idx').on(table.contractId),
+    statusIdx: index('contract_zones_status_idx').on(table.status),
+    zoneTypeIdx: index('contract_zones_type_idx').on(table.zoneType),
+  })
+);
+
+export const trees = pgTable(
+  'trees',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    latitude: doublePrecision('latitude').notNull(),
+    longitude: doublePrecision('longitude').notNull(),
+    speciesCommon: varchar('species_common', { length: 200 }),
+    speciesScientific: varchar('species_scientific', { length: 200 }),
+    speciesConfidence: doublePrecision('species_confidence'),
+    healthStatus: varchar('health_status', { length: 50 }),
+    healthConfidence: doublePrecision('health_confidence'),
+    estimatedDbhCm: doublePrecision('estimated_dbh_cm'),
+    estimatedHeightM: doublePrecision('estimated_height_m'),
+    observationCount: integer('observation_count').default(0).notNull(),
+    uniqueObserverCount: integer('unique_observer_count').default(0).notNull(),
+    lastObservedAt: timestamp('last_observed_at'),
+    cooldownUntil: timestamp('cooldown_until'),
+    verificationTier: varchar('verification_tier', { length: 20 }).default('unverified'),
+    contractZoneId: uuid('contract_zone_id').references(() => contractZones.id),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    locationIdx: index('trees_location_idx').using('gist', sql`location`),
+    cooldownIdx: index('trees_cooldown_idx').on(table.cooldownUntil),
+    contractZoneIdx: index('trees_contract_zone_idx').on(table.contractZoneId),
+  })
+);
+
+export const observations = pgTable(
+  'observations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    treeId: uuid('tree_id').references(() => trees.id),
+    userId: uuid('user_id')
+      .references(() => users.id)
+      .notNull(),
+    latitude: doublePrecision('latitude').notNull(),
+    longitude: doublePrecision('longitude').notNull(),
+    gpsAccuracyMeters: doublePrecision('gps_accuracy_meters'),
+    status: observationStatusEnum('status').default('pending_upload').notNull(),
+    aiSpeciesResult: text('ai_species_result'),
+    aiHealthResult: text('ai_health_result'),
+    aiMeasurementResult: text('ai_measurement_result'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    treeIdx: index('observations_tree_idx').on(table.treeId),
+    userIdx: index('observations_user_idx').on(table.userId),
+    statusIdx: index('observations_status_idx').on(table.status),
+  })
+);
+
+export const photos = pgTable('photos', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  observationId: uuid('observation_id')
+    .references(() => observations.id)
+    .notNull(),
+  photoType: varchar('photo_type', { length: 20 }).notNull(),
+  storageKey: varchar('storage_key', { length: 500 }).notNull(),
+  storageUrl: text('storage_url'),
+  widthPx: integer('width_px'),
+  heightPx: integer('height_px'),
+  fileSizeBytes: integer('file_size_bytes'),
+  mimeType: varchar('mime_type', { length: 50 }),
+  capturedAt: timestamp('captured_at'),
+  deviceModel: varchar('device_model', { length: 100 }),
+  osVersion: varchar('os_version', { length: 50 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
