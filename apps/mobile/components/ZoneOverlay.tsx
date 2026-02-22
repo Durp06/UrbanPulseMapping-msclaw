@@ -61,3 +61,61 @@ export function ZoneOverlay({ features, onZonePress }: ZoneOverlayProps) {
     </>
   );
 }
+
+// Bounty overlay with gold/amber styling
+interface BountyOverlayProps {
+  bounties: Array<{
+    id: string;
+    geometry: any;
+    bountyAmountCents: number;
+  }>;
+  onBountyPress?: (bountyId: string) => void;
+}
+
+const BOUNTY_COLORS = {
+  fill: 'rgba(212, 160, 23, 0.15)',
+  stroke: 'rgba(212, 160, 23, 0.85)',
+};
+
+export function BountyOverlay({ bounties, onBountyPress }: BountyOverlayProps) {
+  return (
+    <>
+      {bounties.map((bounty) => {
+        const geom = bounty.geometry;
+        if (!geom) return null;
+
+        if (geom.type === 'MultiPolygon') {
+          return (geom.coordinates as number[][][][]).map((polygon: number[][][], pIdx: number) =>
+            polygon.map((ring: number[][], rIdx: number) => (
+              <Polygon
+                key={`bounty-${bounty.id}-${pIdx}-${rIdx}`}
+                coordinates={coordinatesToLatLng(ring)}
+                fillColor={BOUNTY_COLORS.fill}
+                strokeColor={BOUNTY_COLORS.stroke}
+                strokeWidth={3}
+                tappable={!!onBountyPress}
+                onPress={() => onBountyPress?.(bounty.id)}
+              />
+            ))
+          );
+        }
+
+        if (geom.type === 'Polygon') {
+          return (geom.coordinates as number[][][]).map((ring: number[][], rIdx: number) => (
+            <Polygon
+              key={`bounty-${bounty.id}-${rIdx}`}
+              coordinates={coordinatesToLatLng(ring)}
+              fillColor={BOUNTY_COLORS.fill}
+              strokeColor={BOUNTY_COLORS.stroke}
+              strokeWidth={3}
+              tappable={!!onBountyPress}
+              onPress={() => onBountyPress?.(bounty.id)}
+            />
+          ));
+        }
+
+        return null;
+      })}
+    </>
+  );
+}

@@ -1,6 +1,7 @@
 import type { Tree, Observation, Photo, PhotoType, AIResult } from './tree';
-import type { User, UserStats } from './user';
+import type { User, UserStats, UserRole } from './user';
 import type { ZoneFeatureCollection, ZoneSummary, ContractZone, ZoneGeometry } from './zone';
+import type { Bounty, BountyWithGeometry, BountyClaim, BountyLeaderboardEntry, UserEarnings } from './bounty';
 
 // Trees
 export interface GetTreesRequest {
@@ -8,6 +9,8 @@ export interface GetTreesRequest {
   lng: number;
   radius?: number;
   status?: string;
+  zoneId?: string;
+  zoneType?: string;
 }
 
 export interface GetTreesResponse {
@@ -42,6 +45,11 @@ export interface CreateObservationResponse {
   observation: Observation;
   tree: Tree;
   isNewTree: boolean;
+  bountyClaim?: {
+    bountyId: string;
+    bountyTitle: string;
+    amountCents: number;
+  } | null;
 }
 
 export interface GetObservationResponse {
@@ -64,6 +72,7 @@ export interface PresignedUrlResponse {
 export interface UpdateUserRequest {
   displayName?: string;
   avatarUrl?: string;
+  role?: UserRole;
 }
 
 export interface GetUserResponse {
@@ -107,6 +116,53 @@ export interface GetZoneTreesResponse {
 export interface GetZonesSummaryResponse {
   zones: ZoneSummary[];
 }
+
+// Bounties
+export interface CreateBountyRequest {
+  contractZoneId?: string;
+  title: string;
+  description: string;
+  zoneType: 'zip_code' | 'street_corridor';
+  zoneIdentifier: string;
+  bountyAmountCents: number;
+  bonusThreshold?: number;
+  bonusAmountCents?: number;
+  totalBudgetCents: number;
+  startsAt: string;
+  expiresAt: string;
+  treeTargetCount: number;
+}
+
+export interface UpdateBountyRequest {
+  title?: string;
+  description?: string;
+  bountyAmountCents?: number;
+  bonusThreshold?: number;
+  bonusAmountCents?: number;
+  totalBudgetCents?: number;
+  status?: 'draft' | 'active' | 'paused' | 'completed' | 'expired';
+  startsAt?: string;
+  expiresAt?: string;
+  treeTargetCount?: number;
+}
+
+export interface GetBountiesResponse {
+  bounties: BountyWithGeometry[];
+}
+
+export interface GetBountyResponse {
+  bounty: BountyWithGeometry;
+}
+
+export interface GetBountyLeaderboardResponse {
+  leaderboard: BountyLeaderboardEntry[];
+}
+
+export interface GetMyBountiesResponse {
+  bounties: Bounty[];
+}
+
+export interface GetUserEarningsResponse extends UserEarnings {}
 
 // Generic error
 export interface ApiError {

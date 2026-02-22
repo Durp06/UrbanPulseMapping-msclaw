@@ -24,6 +24,12 @@ interface ScanPhoto {
   type: PhotoType;
 }
 
+interface BountyClaimInfo {
+  bountyId: string;
+  bountyTitle: string;
+  amountCents: number;
+}
+
 interface ScanState {
   photos: ScanPhoto[];
   latitude: number | null;
@@ -31,10 +37,12 @@ interface ScanState {
   gpsAccuracy: number | null;
   nearbyTreeId: string | null;
   notes: string;
+  lastBountyClaim: BountyClaimInfo | null;
   addPhoto: (photo: ScanPhoto) => void;
   setLocation: (lat: number, lng: number, accuracy: number) => void;
   setNearbyTree: (treeId: string | null) => void;
   setNotes: (notes: string) => void;
+  setLastBountyClaim: (claim: BountyClaimInfo | null) => void;
   reset: () => void;
 }
 
@@ -45,12 +53,14 @@ export const useScanStore = create<ScanState>((set) => ({
   gpsAccuracy: null,
   nearbyTreeId: null,
   notes: '',
+  lastBountyClaim: null,
   addPhoto: (photo) =>
     set((state) => ({ photos: [...state.photos, photo] })),
   setLocation: (latitude, longitude, gpsAccuracy) =>
     set({ latitude, longitude, gpsAccuracy }),
   setNearbyTree: (nearbyTreeId) => set({ nearbyTreeId }),
   setNotes: (notes) => set({ notes }),
+  setLastBountyClaim: (lastBountyClaim) => set({ lastBountyClaim }),
   reset: () =>
     set({
       photos: [],
@@ -59,5 +69,6 @@ export const useScanStore = create<ScanState>((set) => ({
       gpsAccuracy: null,
       nearbyTreeId: null,
       notes: '',
+      lastBountyClaim: null,
     }),
 }));

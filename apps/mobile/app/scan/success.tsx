@@ -16,13 +16,13 @@ export default function SuccessScreen() {
   });
   const { data: zonesSummary } = useZonesSummary();
   const scanState = useScanStore();
+  const bountyClaim = useScanStore((s) => (s as any).lastBountyClaim);
 
   // Check if the scanned tree location is in an active zone
   const activeZoneMatch = React.useMemo(() => {
     if (!scanState.latitude || !scanState.longitude || !zonesSummary?.zones) {
       return null;
     }
-    // The API auto-assigns zones so we just show zone info for UX
     const activeZones = zonesSummary.zones.filter((z) => z.status === 'active');
     return activeZones.length > 0 ? activeZones[0] : null;
   }, [scanState.latitude, scanState.longitude, zonesSummary]);
@@ -44,8 +44,27 @@ export default function SuccessScreen() {
           urban tree inventory!
         </Text>
 
+        {/* Bounty earning celebration */}
+        {bountyClaim && (
+          <View
+            className="w-full rounded-2xl p-4 mb-4 border-2"
+            style={{ backgroundColor: colors.bountyBg, borderColor: colors.bounty }}
+          >
+            <Text className="text-3xl text-center mb-1">💰</Text>
+            <Text
+              className="text-xl font-bold text-center"
+              style={{ color: colors.bounty }}
+            >
+              You earned ${(bountyClaim.amountCents / 100).toFixed(2)}!
+            </Text>
+            <Text className="text-sm text-gray-600 text-center mt-1">
+              from "{bountyClaim.bountyTitle}"
+            </Text>
+          </View>
+        )}
+
         {/* Active zone celebration */}
-        {activeZoneMatch && (
+        {activeZoneMatch && !bountyClaim && (
           <View
             className="w-full rounded-2xl p-4 mb-4"
             style={{ backgroundColor: colors.accentLightest }}

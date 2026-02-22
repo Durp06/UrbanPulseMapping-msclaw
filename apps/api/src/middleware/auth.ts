@@ -10,6 +10,7 @@ declare module 'fastify' {
       firebaseUid: string;
       email: string | null;
       displayName: string | null;
+      role: 'user' | 'developer' | 'admin';
     };
   }
 }
@@ -49,6 +50,7 @@ export async function authMiddleware(
       firebaseUid: 'dev-user-123',
       email: 'dev@urbanpulse.test',
       displayName: 'Dev User',
+      role: (existing[0] as any)?.role || 'user',
     };
     return;
   }
@@ -106,6 +108,7 @@ export async function authMiddleware(
       firebaseUid: decoded.uid,
       email: dbUser[0].email,
       displayName: dbUser[0].displayName,
+      role: (dbUser[0] as any).role || 'user',
     };
   } catch (error) {
     return reply.status(401).send({

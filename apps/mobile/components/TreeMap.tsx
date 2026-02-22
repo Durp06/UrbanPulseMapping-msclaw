@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import MapView, { PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import { TreePin } from './TreePin';
-import { ZoneOverlay } from './ZoneOverlay';
+import { ZoneOverlay, BountyOverlay } from './ZoneOverlay';
 import { MAP_DEFAULTS } from '../constants/config';
 import type { Tree, ZoneFeature } from '@urban-pulse/shared-types';
 
@@ -16,6 +16,9 @@ interface TreeMapProps {
   onZonePress?: (zoneId: string) => void;
   onTreePress?: (tree: Tree) => void;
   zoneViewActive?: boolean;
+  bounties?: Array<{ id: string; geometry: any; bountyAmountCents: number }>;
+  showBounties?: boolean;
+  onBountyPress?: (bountyId: string) => void;
 }
 
 export function TreeMap({
@@ -28,6 +31,9 @@ export function TreeMap({
   onZonePress,
   onTreePress,
   zoneViewActive = false,
+  bounties = [],
+  showBounties = false,
+  onBountyPress,
 }: TreeMapProps) {
   const mapRef = useRef<MapView>(null);
 
@@ -55,6 +61,9 @@ export function TreeMap({
       >
         {showZones && zoneFeatures.length > 0 && (
           <ZoneOverlay features={zoneFeatures} onZonePress={onZonePress} />
+        )}
+        {showBounties && bounties.length > 0 && (
+          <BountyOverlay bounties={bounties} onBountyPress={onBountyPress} />
         )}
         {trees.map((tree) => (
           <TreePin

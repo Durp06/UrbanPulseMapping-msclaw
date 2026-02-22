@@ -15,7 +15,7 @@ export async function getUserById(id: string) {
 
 export async function updateUser(
   id: string,
-  data: { displayName?: string; avatarUrl?: string }
+  data: { displayName?: string; avatarUrl?: string; role?: 'user' | 'developer' }
 ) {
   const [updated] = await db
     .update(schema.users)

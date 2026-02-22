@@ -15,6 +15,13 @@
       "when": 1771639850274,
       "tag": "0001_large_rachel_grey",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771726250000,
+      "tag": "0002_bounty_system",
+      "breakpoints": true
     }
   ]
 }

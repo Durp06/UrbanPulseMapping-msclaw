@@ -14,6 +14,11 @@ export const colors = {
   error: '#E76F51',
   cooldown: '#ADB5BD',
 
+  // Bounty / gold
+  bounty: '#D4A017',
+  bountyLight: '#F5D060',
+  bountyBg: 'rgba(212, 160, 23, 0.12)',
+
   // Neutrals
   white: '#FFFFFF',
   background: '#F8FAF9',

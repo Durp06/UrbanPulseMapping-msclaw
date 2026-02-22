@@ -6,41 +6,54 @@ export async function getTreesInRadius(
   lat: number,
   lng: number,
   radiusMeters: number,
-  statusFilter?: string
+  statusFilter?: string,
+  zoneId?: string,
+  zoneType?: string
 ) {
   let query = sql`
     SELECT
-      id,
-      latitude,
-      longitude,
-      species_common as "speciesCommon",
-      species_scientific as "speciesScientific",
-      species_confidence as "speciesConfidence",
-      health_status as "healthStatus",
-      health_confidence as "healthConfidence",
-      estimated_dbh_cm as "estimatedDbhCm",
-      estimated_height_m as "estimatedHeightM",
-      observation_count as "observationCount",
-      unique_observer_count as "uniqueObserverCount",
-      last_observed_at as "lastObservedAt",
-      cooldown_until as "cooldownUntil",
-      verification_tier as "verificationTier",
-      created_at as "createdAt",
-      updated_at as "updatedAt"
-    FROM trees
+      t.id,
+      t.latitude,
+      t.longitude,
+      t.species_common as "speciesCommon",
+      t.species_scientific as "speciesScientific",
+      t.species_confidence as "speciesConfidence",
+      t.health_status as "healthStatus",
+      t.health_confidence as "healthConfidence",
+      t.estimated_dbh_cm as "estimatedDbhCm",
+      t.estimated_height_m as "estimatedHeightM",
+      t.observation_count as "observationCount",
+      t.unique_observer_count as "uniqueObserverCount",
+      t.last_observed_at as "lastObservedAt",
+      t.cooldown_until as "cooldownUntil",
+      t.verification_tier as "verificationTier",
+      t.contract_zone_id as "contractZoneId",
+      t.created_at as "createdAt",
+      t.updated_at as "updatedAt"
+    FROM trees t
     WHERE ST_DWithin(
-      location,
+      t.location,
       ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
       ${radiusMeters}
     )
   `;
 
   if (statusFilter) {
-    query = sql`${query} AND verification_tier = ${statusFilter}`;
+    query = sql`${query} AND t.verification_tier = ${statusFilter}`;
+  }
+
+  if (zoneId) {
+    query = sql`${query} AND t.contract_zone_id = ${zoneId}::uuid`;
+  }
+
+  if (zoneType) {
+    query = sql`${query} AND t.contract_zone_id IN (
+      SELECT cz.id FROM contract_zones cz WHERE cz.zone_type = ${zoneType}::zone_type
+    )`;
   }
 
   query = sql`${query} ORDER BY ST_Distance(
-    location,
+    t.location,
     ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography
   ) ASC`;
 

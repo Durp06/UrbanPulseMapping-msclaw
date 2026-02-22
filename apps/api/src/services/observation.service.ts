@@ -6,6 +6,7 @@ import { createTree, incrementTreeStats } from './tree.service';
 import { ConflictError, NotFoundError } from '../utils/errors';
 import { addProcessingJob } from '../jobs/queue';
 import { findZoneForPoint, incrementZoneTreeCount } from './zone.service';
+import { checkAndCreateBountyClaim } from './bounty.service';
 
 interface CreateObservationInput {
   userId: string;
@@ -98,6 +99,20 @@ export async function createObservation(input: CreateObservationInput) {
     .set({ status: 'pending_ai', updatedAt: new Date() })
     .where(eq(schema.observations.id, observation.id));
 
+  // 7. Check for active bounties and auto-create claim
+  let bountyClaim: { bountyId: string; bountyTitle: string; amountCents: number } | null = null;
+  try {
+    bountyClaim = await checkAndCreateBountyClaim(
+      treeId,
+      observation.id,
+      userId,
+      longitude,
+      latitude
+    );
+  } catch {
+    // Non-fatal: bounty claim failure shouldn't block observation
+  }
+
   // Fetch the tree data to return
   const tree = await db
     .select()
@@ -109,6 +124,7 @@ export async function createObservation(input: CreateObservationInput) {
     observation: { ...observation, status: 'pending_ai' as const },
     tree: tree[0],
     isNewTree,
+    bountyClaim,
   };
 }
 

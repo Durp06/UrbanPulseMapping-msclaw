@@ -78,10 +78,14 @@ export function useSubmission() {
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['trees'] });
       queryClient.invalidateQueries({ queryKey: ['userStats'] });
-      scanState.reset();
+      queryClient.invalidateQueries({ queryKey: ['earnings'] });
+      // Store bounty claim info before reset for success screen
+      if (data.bountyClaim) {
+        scanState.setLastBountyClaim(data.bountyClaim);
+      }
       setUploadProgress(0);
     },
   });

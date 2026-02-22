@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ScrollView, ActivityIndicator, Switch } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { StatsCard } from '../../components/StatsCard';
 import { useAuth } from '../../hooks/useAuth';
 import { useZonesSummary } from '../../hooks/useContractZones';
+import { useUserEarnings } from '../../hooks/useBounties';
 import { api } from '../../lib/api';
 import { colors } from '../../constants/colors';
 import type { GetUserStatsResponse, ZoneStatus } from '@urban-pulse/shared-types';
@@ -17,8 +18,13 @@ const ZONE_STATUS_COLORS: Record<ZoneStatus, string> = {
   paused: colors.cooldown,
 };
 
+function formatCents(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
 export default function DashboardScreen() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ['userStats'],
@@ -26,6 +32,22 @@ export default function DashboardScreen() {
   });
 
   const { data: zonesSummary } = useZonesSummary();
+  const { data: earnings } = useUserEarnings();
+
+  const { data: currentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => api.get<{ user: any }>('/users/me'),
+  });
+
+  const isDeveloper = currentUser?.user?.role === 'developer' || currentUser?.user?.role === 'admin';
+
+  const toggleRole = useMutation({
+    mutationFn: (newRole: string) =>
+      api.patch<{ user: unknown }>('/users/me', { role: newRole }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+    },
+  });
 
   const activeZones = zonesSummary?.zones?.filter((z) => z.status === 'active') || [];
   const upcomingZones = zonesSummary?.zones?.filter((z) => z.status === 'upcoming') || [];
@@ -96,6 +118,48 @@ export default function DashboardScreen() {
                       Keep scanning to maintain your streak
                     </Text>
                   </View>
+                </View>
+              </View>
+            )}
+
+            {/* Earnings Section */}
+            {earnings && (earnings.totalEarnedCents > 0 || earnings.pendingCents > 0) && (
+              <View className="mt-6">
+                <Text className="text-lg font-bold text-gray-900 mb-3">
+                  Earnings
+                </Text>
+                <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                  <View className="flex-row gap-4 mb-3">
+                    <View className="flex-1 items-center">
+                      <Text className="text-xs text-gray-500">Total Earned</Text>
+                      <Text className="text-xl font-bold" style={{ color: colors.bounty }}>
+                        {formatCents(earnings.totalEarnedCents)}
+                      </Text>
+                    </View>
+                    <View className="flex-1 items-center">
+                      <Text className="text-xs text-gray-500">Pending</Text>
+                      <Text className="text-xl font-bold text-gray-700">
+                        {formatCents(earnings.pendingCents)}
+                      </Text>
+                    </View>
+                  </View>
+                  {earnings.bountyBreakdown && earnings.bountyBreakdown.length > 0 && (
+                    <View className="border-t border-gray-100 pt-3">
+                      {earnings.bountyBreakdown.map((b: any, idx: number) => (
+                        <View key={idx} className="flex-row justify-between items-center py-1">
+                          <Text className="text-sm text-gray-700 flex-1" numberOfLines={1}>
+                            {b.bountyTitle}
+                          </Text>
+                          <Text className="text-sm font-medium text-gray-500 ml-2">
+                            {b.claimsCount} trees
+                          </Text>
+                          <Text className="text-sm font-semibold ml-2" style={{ color: colors.bounty }}>
+                            {formatCents(b.earnedCents)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
               </View>
             )}
@@ -183,6 +247,45 @@ export default function DashboardScreen() {
                 ))}
               </View>
             )}
+
+            {/* Developer Mode Toggle */}
+            <View className="mt-6">
+              <Text className="text-lg font-bold text-gray-900 mb-3">
+                Account
+              </Text>
+              <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1 mr-3">
+                    <Text className="text-base font-medium text-gray-900">
+                      Developer Mode
+                    </Text>
+                    <Text className="text-xs text-gray-500 mt-0.5">
+                      Create bounties and manage mapping zones
+                    </Text>
+                  </View>
+                  <Switch
+                    value={isDeveloper}
+                    onValueChange={(val) => {
+                      toggleRole.mutate(val ? 'developer' : 'user');
+                    }}
+                    trackColor={{ false: '#E5E7EB', true: colors.bountyLight }}
+                    thumbColor={isDeveloper ? colors.bounty : '#f4f3f4'}
+                  />
+                </View>
+
+                {isDeveloper && (
+                  <Pressable
+                    className="mt-3 py-3 rounded-xl items-center"
+                    style={{ backgroundColor: colors.bounty }}
+                    onPress={() => router.push('/developer')}
+                  >
+                    <Text className="text-white font-semibold">
+                      Open Developer Dashboard
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
 
             {/* Quick actions */}
             <View className="mt-6 mb-6">

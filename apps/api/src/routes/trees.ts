@@ -18,8 +18,8 @@ export async function treeRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const { lat, lng, radius, status } = parsed.data;
-      const trees = await treeService.getTreesInRadius(lat, lng, radius, status);
+      const { lat, lng, radius, status, zoneId, zoneType } = parsed.data;
+      const trees = await treeService.getTreesInRadius(lat, lng, radius, status, zoneId, zoneType);
 
       return { trees, count: trees.length };
     }

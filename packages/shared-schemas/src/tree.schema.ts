@@ -80,6 +80,8 @@ export const getTreesQuerySchema = z.object({
   lng: z.coerce.number().min(-180).max(180),
   radius: z.coerce.number().min(1).max(50000).default(500),
   status: verificationTierSchema.optional(),
+  zoneId: z.string().uuid().optional(),
+  zoneType: z.enum(['zip_code', 'street_corridor']).optional(),
 });
 
 export const createObservationPhotoSchema = z.object({

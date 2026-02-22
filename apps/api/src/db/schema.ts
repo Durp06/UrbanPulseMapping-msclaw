@@ -40,12 +40,34 @@ export const zoneStatusEnum = pgEnum('zone_status', [
   'upcoming',
 ]);
 
+export const userRoleEnum = pgEnum('user_role', [
+  'user',
+  'developer',
+  'admin',
+]);
+
+export const bountyStatusEnum = pgEnum('bounty_status', [
+  'draft',
+  'active',
+  'paused',
+  'completed',
+  'expired',
+]);
+
+export const bountyClaimStatusEnum = pgEnum('bounty_claim_status', [
+  'pending',
+  'approved',
+  'paid',
+  'rejected',
+]);
+
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   firebaseUid: varchar('firebase_uid', { length: 128 }).notNull().unique(),
   email: varchar('email', { length: 255 }),
   displayName: varchar('display_name', { length: 100 }),
   avatarUrl: text('avatar_url'),
+  role: userRoleEnum('role').default('user').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -163,3 +185,64 @@ export const photos = pgTable('photos', {
   osVersion: varchar('os_version', { length: 50 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+export const bounties = pgTable(
+  'bounties',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    creatorId: uuid('creator_id')
+      .references(() => users.id)
+      .notNull(),
+    contractZoneId: uuid('contract_zone_id').references(() => contractZones.id),
+    title: varchar('title', { length: 300 }).notNull(),
+    description: text('description').notNull(),
+    zoneType: zoneTypeEnum('zone_type').notNull(),
+    zoneIdentifier: varchar('zone_identifier', { length: 100 }).notNull(),
+    // geometry is managed via raw SQL (PostGIS MultiPolygon, nullable)
+    bountyAmountCents: integer('bounty_amount_cents').notNull(),
+    bonusThreshold: integer('bonus_threshold'),
+    bonusAmountCents: integer('bonus_amount_cents'),
+    totalBudgetCents: integer('total_budget_cents').notNull(),
+    spentCents: integer('spent_cents').default(0).notNull(),
+    status: bountyStatusEnum('status').default('draft').notNull(),
+    startsAt: timestamp('starts_at').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+    treeTargetCount: integer('tree_target_count').notNull(),
+    treesCompleted: integer('trees_completed').default(0).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    creatorIdx: index('bounties_creator_idx').on(table.creatorId),
+    statusIdx: index('bounties_status_idx').on(table.status),
+    contractZoneIdx: index('bounties_contract_zone_idx').on(table.contractZoneId),
+  })
+);
+
+export const bountyClaims = pgTable(
+  'bounty_claims',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bountyId: uuid('bounty_id')
+      .references(() => bounties.id)
+      .notNull(),
+    userId: uuid('user_id')
+      .references(() => users.id)
+      .notNull(),
+    treeId: uuid('tree_id')
+      .references(() => trees.id)
+      .notNull(),
+    observationId: uuid('observation_id')
+      .references(() => observations.id)
+      .notNull(),
+    amountCents: integer('amount_cents').notNull(),
+    status: bountyClaimStatusEnum('status').default('pending').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    bountyIdx: index('bounty_claims_bounty_idx').on(table.bountyId),
+    userIdx: index('bounty_claims_user_idx').on(table.userId),
+    treeIdx: index('bounty_claims_tree_idx').on(table.treeId),
+    observationIdx: index('bounty_claims_observation_idx').on(table.observationId),
+  })
+);

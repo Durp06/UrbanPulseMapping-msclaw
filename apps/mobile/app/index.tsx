@@ -8,9 +8,11 @@ import { ZoneToggle, type ZoneViewMode } from '../components/ZoneToggle';
 import { ZoneChipSelector } from '../components/ZoneChipSelector';
 import { ZoneBottomSheet } from '../components/ZoneBottomSheet';
 import { ActiveZoneBanner } from '../components/ActiveZoneBanner';
+import { BountyBottomSheet } from '../components/BountyBottomSheet';
 import { useLocation } from '../hooks/useLocation';
 import { useTrees } from '../hooks/useTrees';
 import { useContractZones } from '../hooks/useContractZones';
+import { useBounties } from '../hooks/useBounties';
 import { useAuth } from '../hooks/useAuth';
 import { colors } from '../constants/colors';
 import { MAP_DEFAULTS } from '../constants/config';
@@ -27,26 +29,45 @@ export default function MapScreen() {
 
   const [zoneViewMode, setZoneViewMode] = useState<ZoneViewMode>('all');
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [selectedBountyId, setSelectedBountyId] = useState<string | null>(null);
   const [selectedTree, setSelectedTree] = useState<Tree | null>(null);
 
   const queryLat = mapCenter?.lat ?? location.latitude ?? MAP_DEFAULTS.latitude;
   const queryLng = mapCenter?.lng ?? location.longitude ?? MAP_DEFAULTS.longitude;
 
-  const { data: treesData } = useTrees(queryLat, queryLng, 1000);
+  // Determine zone filters for trees query
+  const treeZoneId = useMemo(() => {
+    if (zoneViewMode === 'all' || zoneViewMode === 'bounties') return undefined;
+    if (selectedZoneId) return selectedZoneId;
+    return undefined;
+  }, [zoneViewMode, selectedZoneId]);
+
+  const treeZoneType = useMemo(() => {
+    if (zoneViewMode === 'all' || zoneViewMode === 'bounties') return undefined;
+    if (selectedZoneId) return undefined; // specific zone takes precedence
+    if (zoneViewMode === 'zip_code') return 'zip_code';
+    if (zoneViewMode === 'street_corridor') return 'street_corridor';
+    if (zoneViewMode === 'active') return undefined; // active uses status filter on zones, not type
+    return undefined;
+  }, [zoneViewMode, selectedZoneId]);
+
+  const { data: treesData } = useTrees(queryLat, queryLng, 1000, treeZoneId, treeZoneType);
   const { data: zonesData } = useContractZones(
     zoneViewMode === 'active' ? { status: 'active' } : undefined
   );
+  const { data: bountiesData } = useBounties();
 
   const handleRegionChange = (region: Region) => {
     setMapCenter({ lat: region.latitude, lng: region.longitude });
   };
 
-  const showZones = zoneViewMode !== 'all';
+  const showZones = zoneViewMode !== 'all' && zoneViewMode !== 'bounties';
+  const showBounties = zoneViewMode === 'bounties';
 
   // Filter zone features by view mode
   const filteredFeatures = useMemo(() => {
     if (!zonesData?.features) return [];
-    if (zoneViewMode === 'all') return [];
+    if (zoneViewMode === 'all' || zoneViewMode === 'bounties') return [];
     if (zoneViewMode === 'active') {
       return zonesData.features.filter(
         (f: any) => f.properties.status === 'active'
@@ -56,6 +77,50 @@ export default function MapScreen() {
       (f: any) => f.properties.zoneType === zoneViewMode
     );
   }, [zonesData, zoneViewMode]);
+
+  // For zone view active modes, get list of visible zone IDs for filtering
+  const visibleZoneIds = useMemo(() => {
+    if (!showZones) return new Set<string>();
+    return new Set(filteredFeatures.map((f: any) => f.properties.id));
+  }, [showZones, filteredFeatures]);
+
+  // Filter trees to only those in visible zones when zone view is active
+  const filteredTrees = useMemo(() => {
+    const allTrees = treesData?.trees || [];
+    if (!showZones || visibleZoneIds.size === 0) return allTrees;
+    // If a specific zone is selected, server already filters
+    if (treeZoneId) return allTrees;
+    // For "active" mode, filter client-side to only trees in active zones
+    if (zoneViewMode === 'active') {
+      return allTrees.filter(
+        (t: any) => t.contractZoneId && visibleZoneIds.has(t.contractZoneId)
+      );
+    }
+    return allTrees;
+  }, [treesData, showZones, visibleZoneIds, treeZoneId, zoneViewMode]);
+
+  // Bounties with geometry for map overlay
+  const bountyOverlays = useMemo(() => {
+    if (!bountiesData?.bounties) return [];
+    return bountiesData.bounties
+      .filter((b: any) => b.geometry)
+      .map((b: any) => ({
+        id: b.id,
+        geometry: b.geometry,
+        bountyAmountCents: b.bountyAmountCents,
+      }));
+  }, [bountiesData]);
+
+  // Bounty chips for selection
+  const bountyChips = useMemo(() => {
+    if (!bountiesData?.bounties) return [];
+    return bountiesData.bounties.map((b: any) => ({
+      id: b.id,
+      displayName: `$${(b.bountyAmountCents / 100).toFixed(2)}/tree - ${b.title}`,
+      status: 'active' as ZoneStatus,
+      treesMappedCount: b.treesCompleted,
+    }));
+  }, [bountiesData]);
 
   // Chips for zone selection
   const zoneChips = useMemo(() => {
@@ -78,14 +143,17 @@ export default function MapScreen() {
     return (feature as any).properties;
   }, [selectedZoneId, zonesData]);
 
+  // Selected bounty for bottom sheet
+  const selectedBounty = useMemo(() => {
+    if (!selectedBountyId || !bountiesData?.bounties) return null;
+    return bountiesData.bounties.find((b: any) => b.id === selectedBountyId) || null;
+  }, [selectedBountyId, bountiesData]);
+
   // Find active zone the user is currently in
   const activeUserZone = useMemo(() => {
     if (!location.latitude || !location.longitude || !zonesData?.features) return null;
-    // Simple point-in-bbox check for zones
     for (const feature of zonesData.features as any[]) {
       if (feature.properties.status !== 'active') continue;
-      // For simplicity, we check if user is roughly inside zone bounds
-      // Real check would be point-in-polygon, but bbox is good enough for UX
       if (feature.geometry?.coordinates) {
         try {
           const coords = feature.geometry.type === 'MultiPolygon'
@@ -116,10 +184,18 @@ export default function MapScreen() {
   const handleZonePress = (zoneId: string) => {
     if (zoneId === '') {
       setSelectedZoneId(null);
+      setSelectedBountyId(null);
       return;
     }
     setSelectedTree(null);
+    setSelectedBountyId(null);
     setSelectedZoneId(zoneId);
+  };
+
+  const handleBountyPress = (bountyId: string) => {
+    setSelectedTree(null);
+    setSelectedZoneId(null);
+    setSelectedBountyId(bountyId);
   };
 
   const handleTreePress = (tree: Tree) => {
@@ -128,7 +204,15 @@ export default function MapScreen() {
       return;
     }
     setSelectedZoneId(null);
+    setSelectedBountyId(null);
     setSelectedTree(tree);
+  };
+
+  const handleModeChange = (mode: ZoneViewMode) => {
+    setZoneViewMode(mode);
+    setSelectedZoneId(null);
+    setSelectedBountyId(null);
+    setSelectedTree(null);
   };
 
   return (
@@ -153,7 +237,7 @@ export default function MapScreen() {
 
         {/* Zone toggle */}
         <View className="mt-1">
-          <ZoneToggle selected={zoneViewMode} onChange={setZoneViewMode} />
+          <ZoneToggle selected={zoneViewMode} onChange={handleModeChange} />
         </View>
 
         {/* Zone chips */}
@@ -163,6 +247,17 @@ export default function MapScreen() {
               zones={zoneChips}
               selectedId={selectedZoneId}
               onSelect={setSelectedZoneId}
+            />
+          </View>
+        )}
+
+        {/* Bounty chips */}
+        {showBounties && bountyChips.length > 0 && (
+          <View className="mt-2">
+            <ZoneChipSelector
+              zones={bountyChips}
+              selectedId={selectedBountyId}
+              onSelect={setSelectedBountyId}
             />
           </View>
         )}
@@ -182,7 +277,7 @@ export default function MapScreen() {
 
       {/* Map */}
       <TreeMap
-        trees={treesData?.trees || []}
+        trees={filteredTrees}
         userLatitude={location.latitude}
         userLongitude={location.longitude}
         onRegionChange={handleRegionChange}
@@ -191,10 +286,13 @@ export default function MapScreen() {
         onZonePress={handleZonePress}
         onTreePress={handleTreePress}
         zoneViewActive={showZones}
+        bounties={bountyOverlays}
+        showBounties={showBounties}
+        onBountyPress={handleBountyPress}
       />
 
       {/* Selected tree bottom sheet */}
-      {selectedTree && !selectedZoneId && (
+      {selectedTree && !selectedZoneId && !selectedBountyId && (
         <View className="absolute bottom-24 left-4 right-4 bg-white rounded-2xl p-4 shadow-lg">
           <View className="flex-row justify-between items-start">
             <View className="flex-1">
@@ -247,13 +345,21 @@ export default function MapScreen() {
         />
       )}
 
+      {/* Selected bounty bottom sheet */}
+      {selectedBounty && (
+        <BountyBottomSheet
+          bounty={selectedBounty}
+          onClose={() => setSelectedBountyId(null)}
+        />
+      )}
+
       {/* Scan FAB */}
       <ScanButton />
 
       {/* Bottom tab bar */}
       <SafeAreaView edges={['bottom']} className="bg-white border-t border-gray-100">
         <View className="flex-row items-center justify-around py-2">
-          <Pressable className="items-center py-1 px-4">
+          <Pressable className="items-center py-1 px-3">
             <Text className="text-xl">🗺</Text>
             <Text
               className="text-xs font-medium mt-0.5"
@@ -263,7 +369,7 @@ export default function MapScreen() {
             </Text>
           </Pressable>
           <Pressable
-            className="items-center py-1 px-4"
+            className="items-center py-1 px-3"
             onPress={() => router.push('/dashboard')}
           >
             <Text className="text-xl">📊</Text>
@@ -271,7 +377,19 @@ export default function MapScreen() {
               Dashboard
             </Text>
           </Pressable>
-          <Pressable className="items-center py-1 px-4">
+          <Pressable
+            className="items-center py-1 px-3"
+            onPress={() => router.push('/bounties')}
+          >
+            <Text className="text-xl">💰</Text>
+            <Text className="text-xs font-medium text-gray-400 mt-0.5">
+              Bounties
+            </Text>
+          </Pressable>
+          <Pressable
+            className="items-center py-1 px-3"
+            onPress={() => router.push('/dashboard')}
+          >
             <Text className="text-xl">👤</Text>
             <Text className="text-xs font-medium text-gray-400 mt-0.5">
               Profile
