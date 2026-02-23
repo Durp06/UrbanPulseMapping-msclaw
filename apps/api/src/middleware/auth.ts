@@ -29,7 +29,7 @@ export async function authMiddleware(
     ? !process.env.FIREBASE_PROJECT_ID
     : true
   ) {
-    // Ensure dev user exists in database
+    // Ensure dev user exists in database (upsert to avoid race condition)
     const existing = await db
       .select()
       .from(schema.users)
@@ -42,7 +42,7 @@ export async function authMiddleware(
         firebaseUid: 'dev-user-123',
         email: 'dev@urbanpulse.test',
         displayName: 'Dev User',
-      });
+      }).onConflictDoNothing();
     }
 
     request.user = {

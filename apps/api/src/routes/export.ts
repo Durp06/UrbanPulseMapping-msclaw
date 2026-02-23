@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { db, schema } from '../db';
+import { db } from '../db';
 import { sql } from 'drizzle-orm';
 
 export async function exportRoutes(fastify: FastifyInstance) {

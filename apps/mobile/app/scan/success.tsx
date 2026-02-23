@@ -16,7 +16,7 @@ export default function SuccessScreen() {
   });
   const { data: zonesSummary } = useZonesSummary();
   const scanState = useScanStore();
-  const bountyClaim = useScanStore((s) => (s as any).lastBountyClaim);
+  const bountyClaim = useScanStore((s) => s.lastBountyClaim);
 
   // Check if the scanned tree location is in an active zone
   const activeZoneMatch = React.useMemo(() => {
