@@ -174,6 +174,30 @@ All endpoints except `/health` require `Authorization: Bearer <token>` (in dev m
 | `GET` | `/api/zones/:id` | Single zone detail |
 | `GET` | `/api/zones/:id/trees?page=1&limit=20` | Paginated trees in a zone |
 
+### Bounty Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/bounties` | List active bounties (public) |
+| `GET` | `/api/bounties/:id` | Bounty detail |
+| `GET` | `/api/bounties/:id/leaderboard` | Top earners for a bounty |
+| `GET` | `/api/bounties/mine` | Bounties created by current user (developer only) |
+| `POST` | `/api/bounties` | Create a bounty (developer only) |
+| `PATCH` | `/api/bounties/:id` | Update bounty — title, description, status transitions (developer only) |
+
+### User Management Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `PATCH` | `/api/users/me` | Update user profile (role switching: `user` ↔ `developer`) |
+
+### Export Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/export/trees?format=csv` | ArcGIS-compatible CSV with all L1 inspection fields |
+| `GET` | `/api/export/trees?format=geojson` | GeoJSON FeatureCollection export |
+
 ### Internal Endpoints
 
 | Method | Path | Description |
@@ -477,6 +501,46 @@ apps/mobile/
 | API calls fail from simulator | Verify `EXPO_PUBLIC_API_URL=http://localhost:3000/api` |
 | Firebase auth fails | In dev mode, omit `FIREBASE_PROJECT_ID` for mock auth |
 | No tree markers on map | Run seed scripts, check API returns data |
+
+---
+
+## Level 1 Tree Inspection
+
+The scan flow includes a comprehensive Level 1 inspection form (see `docs/LEVEL1_INSPECTION_SPEC.md`):
+
+**Scan Flow:** Photos (3 angles) → Review → **Inspection Form** → Success
+
+**User-Input Fields:**
+- Condition rating (good/fair/poor/dead)
+- Crown dieback, trunk defects (cavity/crack/lean), risk flag
+- Maintenance needed (prune/remove/none)
+- Location type (street tree/park/median/ROW), site type
+- Overhead utility conflict, sidewalk damage from roots
+- Mulch/soil condition, notes
+
+**AI-Estimated Fields** (populated asynchronously via internal endpoint):
+- Species identification, DBH estimate
+- Height estimate, canopy spread
+- Additional defect detection
+
+**Export:** `GET /api/export/trees?format=csv` produces ArcGIS-compatible output with all L1 fields.
+
+---
+
+## Bounty System
+
+Developers can create mapping bounties — monetary incentives for mapping specific zones.
+
+**How it works:**
+1. Switch to Developer Mode in Profile
+2. Create a bounty: set zone, $/tree, total budget, target count
+3. Bounty appears as gold overlay on the map for all users
+4. When a mapper submits a tree in a bounty zone → auto-claim created
+5. Mapper sees "You earned $X.XX!" celebration
+
+**Status transitions:** `draft → active → paused → active → completed`
+
+**Financial fields** (amount, budget, target) are locked once a bounty leaves draft status.
 
 ---
 
