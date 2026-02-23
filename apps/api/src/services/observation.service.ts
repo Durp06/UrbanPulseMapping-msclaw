@@ -8,6 +8,20 @@ import { addProcessingJob } from '../jobs/queue';
 import { findZoneForPoint, incrementZoneTreeCount } from './zone.service';
 import { checkAndCreateBountyClaim } from './bounty.service';
 
+interface InspectionInput {
+  conditionRating?: string;
+  crownDieback?: boolean;
+  trunkDefects?: { cavity: boolean; crack: boolean; lean: boolean };
+  riskFlag?: boolean;
+  maintenanceFlag?: string;
+  locationType?: string;
+  siteType?: string;
+  overheadUtilityConflict?: boolean;
+  sidewalkDamage?: boolean;
+  mulchSoilCondition?: string;
+  nearestAddress?: string;
+}
+
 interface CreateObservationInput {
   userId: string;
   latitude: number;
@@ -15,10 +29,11 @@ interface CreateObservationInput {
   gpsAccuracyMeters: number;
   photos: Array<{ photoType: string; storageKey: string }>;
   notes?: string;
+  inspection?: InspectionInput;
 }
 
 export async function createObservation(input: CreateObservationInput) {
-  const { userId, latitude, longitude, gpsAccuracyMeters, photos, notes } = input;
+  const { userId, latitude, longitude, gpsAccuracyMeters, photos, notes, inspection } = input;
 
   // 1. Deduplication: find nearby tree
   const nearbyTree = await findNearestTree(longitude, latitude);
@@ -63,7 +78,7 @@ export async function createObservation(input: CreateObservationInput) {
     }
   }
 
-  // 2. Create observation
+  // 2. Create observation (with inspection data if provided)
   const [observation] = await db
     .insert(schema.observations)
     .values({
@@ -74,6 +89,19 @@ export async function createObservation(input: CreateObservationInput) {
       gpsAccuracyMeters,
       status: 'pending_upload',
       notes: notes || null,
+      ...(inspection ? {
+        conditionRating: inspection.conditionRating || null,
+        crownDieback: inspection.crownDieback ?? null,
+        trunkDefects: inspection.trunkDefects || null,
+        riskFlag: inspection.riskFlag ?? null,
+        maintenanceFlag: inspection.maintenanceFlag || null,
+        locationType: inspection.locationType || null,
+        siteType: inspection.siteType || null,
+        overheadUtilityConflict: inspection.overheadUtilityConflict ?? null,
+        sidewalkDamage: inspection.sidewalkDamage ?? null,
+        mulchSoilCondition: inspection.mulchSoilCondition || null,
+        nearestAddress: inspection.nearestAddress || null,
+      } : {}),
     })
     .returning();
 
@@ -85,6 +113,23 @@ export async function createObservation(input: CreateObservationInput) {
       storageKey: photo.storageKey,
       storageUrl: `${process.env.S3_PUBLIC_URL || ''}/${photo.storageKey}`,
     });
+  }
+
+  // 3b. Propagate inspection data to tree record
+  if (inspection) {
+    const treeInspectionUpdates: Record<string, unknown> = { updatedAt: new Date() };
+    if (inspection.conditionRating) treeInspectionUpdates.conditionRating = inspection.conditionRating;
+    if (inspection.crownDieback !== undefined) treeInspectionUpdates.crownDieback = inspection.crownDieback;
+    if (inspection.trunkDefects) treeInspectionUpdates.trunkDefects = inspection.trunkDefects;
+    if (inspection.riskFlag !== undefined) treeInspectionUpdates.riskFlag = inspection.riskFlag;
+    if (inspection.maintenanceFlag) treeInspectionUpdates.maintenanceFlag = inspection.maintenanceFlag;
+    if (inspection.locationType) treeInspectionUpdates.locationType = inspection.locationType;
+    if (inspection.siteType) treeInspectionUpdates.siteType = inspection.siteType;
+    if (inspection.overheadUtilityConflict !== undefined) treeInspectionUpdates.overheadUtilityConflict = inspection.overheadUtilityConflict;
+    if (inspection.sidewalkDamage !== undefined) treeInspectionUpdates.sidewalkDamage = inspection.sidewalkDamage;
+    if (inspection.mulchSoilCondition) treeInspectionUpdates.mulchSoilCondition = inspection.mulchSoilCondition;
+    if (inspection.nearestAddress) treeInspectionUpdates.nearestAddress = inspection.nearestAddress;
+    await db.update(schema.trees).set(treeInspectionUpdates).where(eq(schema.trees.id, treeId));
   }
 
   // 4. Check and potentially set cooldown
@@ -151,6 +196,13 @@ export async function updateObservationAIResult(
     species: { common: string; scientific: string; confidence: number } | null;
     health: { status: string; confidence: number; issues: string[] } | null;
     measurements: { dbhCm: number; heightM: number } | null;
+    heightEstimateM?: number | null;
+    canopySpreadM?: number | null;
+    crownDieback?: boolean | null;
+    trunkDefects?: { cavity: boolean; crack: boolean; lean: boolean } | null;
+    riskFlag?: boolean | null;
+    mulchSoilCondition?: string | null;
+    sidewalkDamage?: boolean | null;
   }
 ) {
   const obs = await db
@@ -161,18 +213,29 @@ export async function updateObservationAIResult(
 
   if (obs.length === 0) throw new NotFoundError('Observation');
 
-  // Update observation
+  // Build observation update with AI results
+  const obsUpdates: Record<string, unknown> = {
+    aiSpeciesResult: aiResult.species ? JSON.stringify(aiResult.species) : null,
+    aiHealthResult: aiResult.health ? JSON.stringify(aiResult.health) : null,
+    aiMeasurementResult: aiResult.measurements
+      ? JSON.stringify(aiResult.measurements)
+      : null,
+    status: 'pending_review',
+    updatedAt: new Date(),
+  };
+
+  // Level 1 AI fields on observation
+  if (aiResult.heightEstimateM !== undefined) obsUpdates.heightEstimateM = aiResult.heightEstimateM;
+  if (aiResult.canopySpreadM !== undefined) obsUpdates.canopySpreadM = aiResult.canopySpreadM;
+  if (aiResult.crownDieback !== undefined) obsUpdates.crownDieback = aiResult.crownDieback;
+  if (aiResult.trunkDefects !== undefined) obsUpdates.trunkDefects = aiResult.trunkDefects;
+  if (aiResult.riskFlag !== undefined) obsUpdates.riskFlag = aiResult.riskFlag;
+  if (aiResult.mulchSoilCondition !== undefined) obsUpdates.mulchSoilCondition = aiResult.mulchSoilCondition;
+  if (aiResult.sidewalkDamage !== undefined) obsUpdates.sidewalkDamage = aiResult.sidewalkDamage;
+
   await db
     .update(schema.observations)
-    .set({
-      aiSpeciesResult: aiResult.species ? JSON.stringify(aiResult.species) : null,
-      aiHealthResult: aiResult.health ? JSON.stringify(aiResult.health) : null,
-      aiMeasurementResult: aiResult.measurements
-        ? JSON.stringify(aiResult.measurements)
-        : null,
-      status: 'pending_review',
-      updatedAt: new Date(),
-    })
+    .set(obsUpdates)
     .where(eq(schema.observations.id, id));
 
   // Update parent tree if AI confidence exceeds existing
@@ -209,6 +272,15 @@ export async function updateObservationAIResult(
         updates.estimatedDbhCm = aiResult.measurements.dbhCm;
         updates.estimatedHeightM = aiResult.measurements.heightM;
       }
+
+      // Level 1 AI-estimated fields on tree
+      if (aiResult.heightEstimateM !== undefined) updates.heightEstimateM = aiResult.heightEstimateM;
+      if (aiResult.canopySpreadM !== undefined) updates.canopySpreadM = aiResult.canopySpreadM;
+      if (aiResult.crownDieback !== undefined) updates.crownDieback = aiResult.crownDieback;
+      if (aiResult.trunkDefects !== undefined) updates.trunkDefects = aiResult.trunkDefects;
+      if (aiResult.riskFlag !== undefined) updates.riskFlag = aiResult.riskFlag;
+      if (aiResult.mulchSoilCondition !== undefined) updates.mulchSoilCondition = aiResult.mulchSoilCondition;
+      if (aiResult.sidewalkDamage !== undefined) updates.sidewalkDamage = aiResult.sidewalkDamage;
 
       await db
         .update(schema.trees)

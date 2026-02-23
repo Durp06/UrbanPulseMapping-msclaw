@@ -16,6 +16,20 @@ export type PhotoType =
   | 'full_tree_angle2'
   | 'bark_closeup';
 
+export type ConditionRating = 'good' | 'fair' | 'poor' | 'dead';
+
+export type LocationType = 'street_tree' | 'park' | 'median' | 'row';
+
+export type SiteType = 'tree_lawn' | 'cutout' | 'open_ground' | 'planter';
+
+export type MaintenanceFlag = 'prune' | 'remove' | 'none';
+
+export interface TrunkDefects {
+  cavity: boolean;
+  crack: boolean;
+  lean: boolean;
+}
+
 export interface Tree {
   id: string;
   latitude: number;
@@ -33,8 +47,38 @@ export interface Tree {
   cooldownUntil: string | null;
   verificationTier: VerificationTier;
   contractZoneId: string | null;
+  // Level 1 inspection fields
+  conditionRating: ConditionRating | null;
+  heightEstimateM: number | null;
+  canopySpreadM: number | null;
+  crownDieback: boolean | null;
+  trunkDefects: TrunkDefects | null;
+  locationType: LocationType | null;
+  nearestAddress: string | null;
+  siteType: SiteType | null;
+  overheadUtilityConflict: boolean | null;
+  maintenanceFlag: MaintenanceFlag | null;
+  sidewalkDamage: boolean | null;
+  vacantPlantingSite: boolean;
+  landUseType: string | null;
+  mulchSoilCondition: string | null;
+  riskFlag: boolean | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface InspectionData {
+  conditionRating?: ConditionRating;
+  crownDieback?: boolean;
+  trunkDefects?: TrunkDefects;
+  riskFlag?: boolean;
+  maintenanceFlag?: MaintenanceFlag;
+  locationType?: LocationType;
+  siteType?: SiteType;
+  overheadUtilityConflict?: boolean;
+  sidewalkDamage?: boolean;
+  mulchSoilCondition?: string;
+  nearestAddress?: string;
 }
 
 export interface Observation {
@@ -49,6 +93,20 @@ export interface Observation {
   aiHealthResult: string | null;
   aiMeasurementResult: string | null;
   notes: string | null;
+  // Level 1 inspection fields
+  conditionRating: string | null;
+  heightEstimateM: number | null;
+  canopySpreadM: number | null;
+  crownDieback: boolean | null;
+  trunkDefects: TrunkDefects | null;
+  locationType: string | null;
+  siteType: string | null;
+  overheadUtilityConflict: boolean | null;
+  maintenanceFlag: string | null;
+  sidewalkDamage: boolean | null;
+  mulchSoilCondition: string | null;
+  riskFlag: boolean | null;
+  nearestAddress: string | null;
   photos?: Photo[];
   createdAt: string;
   updatedAt: string;

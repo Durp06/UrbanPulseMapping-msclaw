@@ -15,7 +15,7 @@ export function useSubmission() {
 
   const mutation = useMutation({
     mutationFn: async (): Promise<CreateObservationResponse> => {
-      const { photos, latitude, longitude, gpsAccuracy, notes } = scanState;
+      const { photos, latitude, longitude, gpsAccuracy, notes, inspection } = scanState;
 
       if (!latitude || !longitude) {
         throw new Error('Location not available');
@@ -52,6 +52,22 @@ export function useSubmission() {
           setUploadProgress(uploadedCount / photos.length);
         }
 
+        // Build inspection payload (only include fields that were set)
+        const inspectionPayload: Record<string, unknown> = {};
+        if (inspection.conditionRating) inspectionPayload.conditionRating = inspection.conditionRating;
+        if (inspection.crownDieback !== null) inspectionPayload.crownDieback = inspection.crownDieback;
+        if (inspection.trunkDefects.cavity || inspection.trunkDefects.crack || inspection.trunkDefects.lean) {
+          inspectionPayload.trunkDefects = inspection.trunkDefects;
+        }
+        if (inspection.riskFlag !== null) inspectionPayload.riskFlag = inspection.riskFlag;
+        if (inspection.maintenanceFlag) inspectionPayload.maintenanceFlag = inspection.maintenanceFlag;
+        if (inspection.locationType) inspectionPayload.locationType = inspection.locationType;
+        if (inspection.siteType) inspectionPayload.siteType = inspection.siteType;
+        if (inspection.overheadUtilityConflict !== null) inspectionPayload.overheadUtilityConflict = inspection.overheadUtilityConflict;
+        if (inspection.sidewalkDamage !== null) inspectionPayload.sidewalkDamage = inspection.sidewalkDamage;
+        if (inspection.mulchSoilCondition) inspectionPayload.mulchSoilCondition = inspection.mulchSoilCondition;
+        if (inspection.nearestAddress) inspectionPayload.nearestAddress = inspection.nearestAddress;
+
         // Create observation
         const result = await api.post<CreateObservationResponse>(
           '/observations',
@@ -61,6 +77,7 @@ export function useSubmission() {
             gpsAccuracyMeters: gpsAccuracy || 0,
             photos: photoKeys,
             notes: notes || undefined,
+            inspection: Object.keys(inspectionPayload).length > 0 ? inspectionPayload : undefined,
           }
         );
 

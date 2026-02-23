@@ -296,12 +296,44 @@ export default function MapScreen() {
         <View className="absolute bottom-24 left-4 right-4 bg-white rounded-2xl p-4 shadow-lg">
           <View className="flex-row justify-between items-start">
             <View className="flex-1">
-              <Text className="text-lg font-bold text-gray-900">
-                {selectedTree.speciesCommon || 'Unknown Species'}
-              </Text>
+              <View className="flex-row items-center gap-2">
+                <Text className="text-lg font-bold text-gray-900">
+                  {selectedTree.speciesCommon || 'Unknown Species'}
+                </Text>
+                {selectedTree.conditionRating && (
+                  <View
+                    className="px-2 py-0.5 rounded-full"
+                    style={{
+                      backgroundColor:
+                        selectedTree.conditionRating === 'good' ? '#D1FAE5' :
+                        selectedTree.conditionRating === 'fair' ? '#FEF3C7' :
+                        selectedTree.conditionRating === 'poor' ? '#FED7AA' :
+                        '#FECACA',
+                    }}
+                  >
+                    <Text
+                      className="text-xs font-semibold capitalize"
+                      style={{
+                        color:
+                          selectedTree.conditionRating === 'good' ? '#065F46' :
+                          selectedTree.conditionRating === 'fair' ? '#92400E' :
+                          selectedTree.conditionRating === 'poor' ? '#C2410C' :
+                          '#991B1B',
+                      }}
+                    >
+                      {selectedTree.conditionRating}
+                    </Text>
+                  </View>
+                )}
+              </View>
               {selectedTree.speciesScientific && (
                 <Text className="text-sm italic text-gray-500">
                   {selectedTree.speciesScientific}
+                </Text>
+              )}
+              {selectedTree.nearestAddress && (
+                <Text className="text-xs text-gray-400 mt-0.5">
+                  {selectedTree.nearestAddress}
                 </Text>
               )}
             </View>
@@ -312,6 +344,45 @@ export default function MapScreen() {
               <Text className="text-xs text-gray-500">✕</Text>
             </Pressable>
           </View>
+
+          {/* Flags row */}
+          {(selectedTree.riskFlag || selectedTree.maintenanceFlag || selectedTree.trunkDefects) && (
+            <View className="flex-row flex-wrap gap-1.5 mt-2">
+              {selectedTree.riskFlag && (
+                <View className="bg-red-100 px-2 py-0.5 rounded-full">
+                  <Text className="text-xs font-medium text-red-700">Risk Flag</Text>
+                </View>
+              )}
+              {selectedTree.maintenanceFlag && selectedTree.maintenanceFlag !== 'none' && (
+                <View className="bg-amber-100 px-2 py-0.5 rounded-full">
+                  <Text className="text-xs font-medium text-amber-700">
+                    {selectedTree.maintenanceFlag === 'prune' ? 'Needs Pruning' : 'Needs Removal'}
+                  </Text>
+                </View>
+              )}
+              {selectedTree.trunkDefects && typeof selectedTree.trunkDefects === 'object' && (
+                <>
+                  {(selectedTree.trunkDefects as any).cavity && (
+                    <View className="bg-orange-100 px-2 py-0.5 rounded-full">
+                      <Text className="text-xs font-medium text-orange-700">Cavity</Text>
+                    </View>
+                  )}
+                  {(selectedTree.trunkDefects as any).crack && (
+                    <View className="bg-orange-100 px-2 py-0.5 rounded-full">
+                      <Text className="text-xs font-medium text-orange-700">Crack</Text>
+                    </View>
+                  )}
+                  {(selectedTree.trunkDefects as any).lean && (
+                    <View className="bg-orange-100 px-2 py-0.5 rounded-full">
+                      <Text className="text-xs font-medium text-orange-700">Lean</Text>
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+          )}
+
+          {/* Stats row */}
           <View className="flex-row mt-3 gap-4">
             <View>
               <Text className="text-xs text-gray-500">Observations</Text>
@@ -333,6 +404,34 @@ export default function MapScreen() {
                 </Text>
               </View>
             )}
+          </View>
+
+          {/* AI estimates row */}
+          <View className="flex-row mt-3 gap-4 border-t border-gray-100 pt-3">
+            <View>
+              <Text className="text-xs text-gray-500">DBH</Text>
+              <Text className="text-sm font-semibold">
+                {selectedTree.estimatedDbhCm
+                  ? `${selectedTree.estimatedDbhCm.toFixed(1)} cm`
+                  : 'Pending'}
+              </Text>
+            </View>
+            <View>
+              <Text className="text-xs text-gray-500">Height</Text>
+              <Text className="text-sm font-semibold">
+                {(selectedTree.heightEstimateM || selectedTree.estimatedHeightM)
+                  ? `${(selectedTree.heightEstimateM || selectedTree.estimatedHeightM)!.toFixed(1)} m`
+                  : 'Pending'}
+              </Text>
+            </View>
+            <View>
+              <Text className="text-xs text-gray-500">Canopy</Text>
+              <Text className="text-sm font-semibold">
+                {selectedTree.canopySpreadM
+                  ? `${selectedTree.canopySpreadM.toFixed(1)} m`
+                  : 'Pending'}
+              </Text>
+            </View>
           </View>
         </View>
       )}

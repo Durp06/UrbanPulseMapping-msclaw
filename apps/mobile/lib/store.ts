@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import type { User, PhotoType } from '@urban-pulse/shared-types';
+import type {
+  User,
+  PhotoType,
+  ConditionRating,
+  LocationType,
+  SiteType,
+  MaintenanceFlag,
+  TrunkDefects,
+} from '@urban-pulse/shared-types';
 
 interface AuthState {
   token: string | null;
@@ -30,6 +38,34 @@ interface BountyClaimInfo {
   amountCents: number;
 }
 
+interface InspectionState {
+  conditionRating: ConditionRating | null;
+  crownDieback: boolean | null;
+  trunkDefects: TrunkDefects;
+  riskFlag: boolean | null;
+  maintenanceFlag: MaintenanceFlag | null;
+  locationType: LocationType | null;
+  siteType: SiteType | null;
+  overheadUtilityConflict: boolean | null;
+  sidewalkDamage: boolean | null;
+  mulchSoilCondition: string;
+  nearestAddress: string;
+}
+
+const defaultInspection: InspectionState = {
+  conditionRating: null,
+  crownDieback: null,
+  trunkDefects: { cavity: false, crack: false, lean: false },
+  riskFlag: null,
+  maintenanceFlag: null,
+  locationType: null,
+  siteType: null,
+  overheadUtilityConflict: null,
+  sidewalkDamage: null,
+  mulchSoilCondition: '',
+  nearestAddress: '',
+};
+
 interface ScanState {
   photos: ScanPhoto[];
   latitude: number | null;
@@ -38,11 +74,13 @@ interface ScanState {
   nearbyTreeId: string | null;
   notes: string;
   lastBountyClaim: BountyClaimInfo | null;
+  inspection: InspectionState;
   addPhoto: (photo: ScanPhoto) => void;
   setLocation: (lat: number, lng: number, accuracy: number) => void;
   setNearbyTree: (treeId: string | null) => void;
   setNotes: (notes: string) => void;
   setLastBountyClaim: (claim: BountyClaimInfo | null) => void;
+  setInspection: (data: Partial<InspectionState>) => void;
   reset: () => void;
 }
 
@@ -54,6 +92,7 @@ export const useScanStore = create<ScanState>((set) => ({
   nearbyTreeId: null,
   notes: '',
   lastBountyClaim: null,
+  inspection: { ...defaultInspection },
   addPhoto: (photo) =>
     set((state) => ({ photos: [...state.photos, photo] })),
   setLocation: (latitude, longitude, gpsAccuracy) =>
@@ -61,6 +100,10 @@ export const useScanStore = create<ScanState>((set) => ({
   setNearbyTree: (nearbyTreeId) => set({ nearbyTreeId }),
   setNotes: (notes) => set({ notes }),
   setLastBountyClaim: (lastBountyClaim) => set({ lastBountyClaim }),
+  setInspection: (data) =>
+    set((state) => ({
+      inspection: { ...state.inspection, ...data },
+    })),
   reset: () =>
     set({
       photos: [],
@@ -70,5 +113,6 @@ export const useScanStore = create<ScanState>((set) => ({
       nearbyTreeId: null,
       notes: '',
       lastBountyClaim: null,
+      inspection: { ...defaultInspection },
     }),
 }));

@@ -8,6 +8,7 @@ import { uploadRoutes } from './routes/uploads';
 import { userRoutes } from './routes/users';
 import { zoneRoutes } from './routes/zones';
 import { bountyRoutes } from './routes/bounties';
+import { exportRoutes } from './routes/export';
 
 export function buildApp() {
   const fastify = Fastify({
@@ -43,6 +44,7 @@ export function buildApp() {
   fastify.register(userRoutes);
   fastify.register(zoneRoutes);
   fastify.register(bountyRoutes);
+  fastify.register(exportRoutes);
 
   return fastify;
 }

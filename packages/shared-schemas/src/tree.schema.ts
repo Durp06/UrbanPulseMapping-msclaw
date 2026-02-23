@@ -21,6 +21,20 @@ export const photoTypeSchema = z.enum([
   'bark_closeup',
 ]);
 
+export const conditionRatingSchema = z.enum(['good', 'fair', 'poor', 'dead']);
+
+export const locationTypeSchema = z.enum(['street_tree', 'park', 'median', 'row']);
+
+export const siteTypeSchema = z.enum(['tree_lawn', 'cutout', 'open_ground', 'planter']);
+
+export const maintenanceFlagSchema = z.enum(['prune', 'remove', 'none']);
+
+export const trunkDefectsSchema = z.object({
+  cavity: z.boolean(),
+  crack: z.boolean(),
+  lean: z.boolean(),
+});
+
 export const treeSchema = z.object({
   id: z.string().uuid(),
   latitude: z.number(),
@@ -37,6 +51,22 @@ export const treeSchema = z.object({
   lastObservedAt: z.string().nullable(),
   cooldownUntil: z.string().nullable(),
   verificationTier: verificationTierSchema,
+  // Level 1 inspection fields
+  conditionRating: z.string().nullable().optional(),
+  heightEstimateM: z.number().nullable().optional(),
+  canopySpreadM: z.number().nullable().optional(),
+  crownDieback: z.boolean().nullable().optional(),
+  trunkDefects: trunkDefectsSchema.nullable().optional(),
+  locationType: z.string().nullable().optional(),
+  nearestAddress: z.string().nullable().optional(),
+  siteType: z.string().nullable().optional(),
+  overheadUtilityConflict: z.boolean().nullable().optional(),
+  maintenanceFlag: z.string().nullable().optional(),
+  sidewalkDamage: z.boolean().nullable().optional(),
+  vacantPlantingSite: z.boolean().optional(),
+  landUseType: z.string().nullable().optional(),
+  mulchSoilCondition: z.string().nullable().optional(),
+  riskFlag: z.boolean().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -69,6 +99,20 @@ export const observationSchema = z.object({
   aiHealthResult: z.string().nullable(),
   aiMeasurementResult: z.string().nullable(),
   notes: z.string().nullable(),
+  // Level 1 inspection fields
+  conditionRating: z.string().nullable().optional(),
+  heightEstimateM: z.number().nullable().optional(),
+  canopySpreadM: z.number().nullable().optional(),
+  crownDieback: z.boolean().nullable().optional(),
+  trunkDefects: trunkDefectsSchema.nullable().optional(),
+  locationType: z.string().nullable().optional(),
+  siteType: z.string().nullable().optional(),
+  overheadUtilityConflict: z.boolean().nullable().optional(),
+  maintenanceFlag: z.string().nullable().optional(),
+  sidewalkDamage: z.boolean().nullable().optional(),
+  mulchSoilCondition: z.string().nullable().optional(),
+  riskFlag: z.boolean().nullable().optional(),
+  nearestAddress: z.string().nullable().optional(),
   photos: z.array(photoSchema).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -89,12 +133,27 @@ export const createObservationPhotoSchema = z.object({
   storageKey: z.string().min(1),
 });
 
+export const inspectionDataSchema = z.object({
+  conditionRating: conditionRatingSchema.optional(),
+  crownDieback: z.boolean().optional(),
+  trunkDefects: trunkDefectsSchema.optional(),
+  riskFlag: z.boolean().optional(),
+  maintenanceFlag: maintenanceFlagSchema.optional(),
+  locationType: locationTypeSchema.optional(),
+  siteType: siteTypeSchema.optional(),
+  overheadUtilityConflict: z.boolean().optional(),
+  sidewalkDamage: z.boolean().optional(),
+  mulchSoilCondition: z.string().max(100).optional(),
+  nearestAddress: z.string().max(500).optional(),
+});
+
 export const createObservationSchema = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   gpsAccuracyMeters: z.number().min(0),
   photos: z.array(createObservationPhotoSchema).length(3),
   notes: z.string().optional(),
+  inspection: inspectionDataSchema.optional(),
 });
 
 export const presignedUrlRequestSchema = z.object({
@@ -125,4 +184,12 @@ export const aiResultSchema = z.object({
   species: aiSpeciesResultSchema.nullable(),
   health: aiHealthResultSchema.nullable(),
   measurements: aiMeasurementResultSchema.nullable(),
+  // Level 1 AI-estimated fields
+  heightEstimateM: z.number().positive().nullable().optional(),
+  canopySpreadM: z.number().positive().nullable().optional(),
+  crownDieback: z.boolean().nullable().optional(),
+  trunkDefects: trunkDefectsSchema.nullable().optional(),
+  riskFlag: z.boolean().nullable().optional(),
+  mulchSoilCondition: z.string().nullable().optional(),
+  sidewalkDamage: z.boolean().nullable().optional(),
 });

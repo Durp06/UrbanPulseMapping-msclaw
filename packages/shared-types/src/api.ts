@@ -1,4 +1,4 @@
-import type { Tree, Observation, Photo, PhotoType, AIResult } from './tree';
+import type { Tree, Observation, Photo, PhotoType, AIResult, InspectionData } from './tree';
 import type { User, UserStats, UserRole } from './user';
 import type { ZoneFeatureCollection, ZoneSummary, ContractZone, ZoneGeometry } from './zone';
 import type { Bounty, BountyWithGeometry, BountyClaim, BountyLeaderboardEntry, UserEarnings } from './bounty';
@@ -39,6 +39,7 @@ export interface CreateObservationRequest {
   gpsAccuracyMeters: number;
   photos: CreateObservationPhotoInput[];
   notes?: string;
+  inspection?: InspectionData;
 }
 
 export interface CreateObservationResponse {

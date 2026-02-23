@@ -14,6 +14,7 @@ export default function ScanLayout() {
       <Stack.Screen name="angle2" />
       <Stack.Screen name="bark" />
       <Stack.Screen name="review" />
+      <Stack.Screen name="inspection" />
       <Stack.Screen name="success" />
     </Stack>
   );
