@@ -81,7 +81,7 @@ export default function DeveloperDashboard() {
                   key={bounty.id}
                   className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
                   onPress={() => {
-                    // Could navigate to bounty detail/edit
+                    router.push({ pathname: '/developer/bounty-detail', params: { id: bounty.id } });
                   }}
                 >
                   {/* Title + status */}

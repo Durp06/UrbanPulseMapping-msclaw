@@ -142,6 +142,13 @@ export async function bountyRoutes(fastify: FastifyInstance) {
             message: error.message,
           });
         }
+        if (error.statusCode === 400) {
+          return reply.status(400).send({
+            statusCode: 400,
+            error: 'Bad Request',
+            message: error.message,
+          });
+        }
         throw error;
       }
     }

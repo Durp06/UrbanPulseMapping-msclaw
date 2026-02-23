@@ -50,6 +50,8 @@ export default function RootLayout() {
         <Stack.Screen name="bounties/index" />
         <Stack.Screen name="developer/index" />
         <Stack.Screen name="developer/create-bounty" />
+        <Stack.Screen name="developer/bounty-detail" />
+        <Stack.Screen name="profile/index" />
         <Stack.Screen name="(auth)/login" />
         <Stack.Screen name="(auth)/register" />
       </Stack>

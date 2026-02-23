@@ -113,8 +113,7 @@ export default function BountiesScreen() {
                   key={bounty.id}
                   className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100"
                   onPress={() => {
-                    router.back();
-                    // Navigate to map with bounties view
+                    router.push({ pathname: '/developer/bounty-detail', params: { id: bounty.id, readonly: 'true' } });
                   }}
                 >
                   {/* Title row */}

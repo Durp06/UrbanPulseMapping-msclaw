@@ -54,6 +54,22 @@ export async function createBounty(input: CreateBountyInput) {
   return bounty;
 }
 
+const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
+  draft: ['active'],
+  active: ['paused', 'completed'],
+  paused: ['active'],
+};
+
+const FINANCIAL_FIELDS = [
+  'bountyAmountCents',
+  'bonusThreshold',
+  'bonusAmountCents',
+  'totalBudgetCents',
+  'treeTargetCount',
+  'startsAt',
+  'expiresAt',
+];
+
 export async function updateBounty(
   bountyId: string,
   creatorId: string,
@@ -61,7 +77,10 @@ export async function updateBounty(
 ) {
   // Verify ownership
   const existing = await db
-    .select({ creatorId: schema.bounties.creatorId })
+    .select({
+      creatorId: schema.bounties.creatorId,
+      status: schema.bounties.status,
+    })
     .from(schema.bounties)
     .where(eq(schema.bounties.id, bountyId))
     .limit(1);
@@ -71,6 +90,33 @@ export async function updateBounty(
     const err = new Error('You can only update your own bounties');
     (err as any).statusCode = 403;
     throw err;
+  }
+
+  const currentStatus = existing[0].status;
+
+  // Validate status transition
+  if (data.status !== undefined && data.status !== currentStatus) {
+    const allowed = VALID_STATUS_TRANSITIONS[currentStatus] || [];
+    if (!allowed.includes(data.status as string)) {
+      const err = new Error(
+        `Cannot transition from '${currentStatus}' to '${data.status}'`
+      );
+      (err as any).statusCode = 400;
+      throw err;
+    }
+  }
+
+  // Cannot edit financial/target fields once bounty is active (or beyond)
+  if (currentStatus !== 'draft') {
+    for (const field of FINANCIAL_FIELDS) {
+      if (data[field] !== undefined) {
+        const err = new Error(
+          `Cannot modify '${field}' once bounty is active. Only title, description, and status can be changed.`
+        );
+        (err as any).statusCode = 400;
+        throw err;
+      }
+    }
   }
 
   const updateData: Record<string, unknown> = { updatedAt: new Date() };

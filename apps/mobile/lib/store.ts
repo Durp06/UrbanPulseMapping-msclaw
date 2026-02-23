@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type {
   User,
+  UserRole,
   PhotoType,
   ConditionRating,
   LocationType,
@@ -15,6 +16,7 @@ interface AuthState {
   isAuthenticated: boolean;
   setAuth: (data: { token: string; user: User }) => void;
   clearAuth: () => void;
+  updateUser: (data: Partial<User>) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -25,6 +27,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ token, user, isAuthenticated: true }),
   clearAuth: () =>
     set({ token: null, user: null, isAuthenticated: false }),
+  updateUser: (data) =>
+    set((state) => ({
+      user: state.user ? { ...state.user, ...data } : null,
+    })),
 }));
 
 interface ScanPhoto {

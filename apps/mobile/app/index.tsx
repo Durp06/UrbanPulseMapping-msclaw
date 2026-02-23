@@ -487,7 +487,7 @@ export default function MapScreen() {
           </Pressable>
           <Pressable
             className="items-center py-1 px-3"
-            onPress={() => router.push('/dashboard')}
+            onPress={() => router.push('/profile')}
           >
             <Text className="text-xl">👤</Text>
             <Text className="text-xs font-medium text-gray-400 mt-0.5">
