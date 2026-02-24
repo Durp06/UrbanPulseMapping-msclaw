@@ -87,11 +87,13 @@ export default function LoginScreen() {
   return (
     <LinearGradient
       colors={[colors.primaryDark, colors.primary]}
+      style={{ flex: 1 }}
       className="flex-1"
     >
-      <SafeAreaView className="flex-1">
+      <SafeAreaView style={{ flex: 1 }} className="flex-1">
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }}
           className="flex-1 justify-center px-6"
         >
           {/* Logo */}

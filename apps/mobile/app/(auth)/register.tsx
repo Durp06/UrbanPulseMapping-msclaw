@@ -94,7 +94,7 @@ export default function RegisterScreen() {
 
   return (
     <LinearGradient
-      colors={[colors.primaryDark, colors.primary]}
+      colors={[colors.primaryDark, colors.primary]} style={{ flex: 1 }}
       className="flex-1"
     >
       <SafeAreaView className="flex-1">
