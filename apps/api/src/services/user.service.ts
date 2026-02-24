@@ -84,3 +84,41 @@ export async function getUserStats(userId: string) {
     neighborhoodsContributed: 0,
   };
 }
+
+export async function getUserObservations(userId: string) {
+  const observations = await db
+    .select({
+      id: schema.observations.id,
+      treeId: schema.observations.treeId,
+      latitude: schema.observations.latitude,
+      longitude: schema.observations.longitude,
+      createdAt: schema.observations.createdAt,
+    })
+    .from(schema.observations)
+    .where(eq(schema.observations.userId, userId));
+
+  return observations;
+}
+
+export async function getWeeklyActivity(userId: string) {
+  const result = await db.execute(sql`
+    SELECT
+      d.day::date as date,
+      COALESCE(COUNT(o.id), 0)::int as count
+    FROM generate_series(
+      CURRENT_DATE - INTERVAL '6 days',
+      CURRENT_DATE,
+      '1 day'
+    ) AS d(day)
+    LEFT JOIN observations o
+      ON DATE(o.created_at) = d.day::date
+      AND o.user_id = ${userId}
+    GROUP BY d.day
+    ORDER BY d.day ASC
+  `) as unknown as Array<{ date: string; count: number }>;
+
+  return result.map((row) => ({
+    date: row.date,
+    count: Number(row.count),
+  }));
+}

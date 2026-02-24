@@ -2,13 +2,16 @@ import React from 'react';
 import { View, Text, Pressable, ScrollView, ActivityIndicator, Switch } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { StatsCard } from '../../components/StatsCard';
+import { WeeklyActivityChart } from '../../components/WeeklyActivityChart';
 import { useAuth } from '../../hooks/useAuth';
 import { useZonesSummary } from '../../hooks/useContractZones';
 import { useUserEarnings } from '../../hooks/useBounties';
 import { api } from '../../lib/api';
 import { colors } from '../../constants/colors';
+import { MAP_DEFAULTS } from '../../constants/config';
 import type { GetUserStatsResponse, ZoneStatus } from '@urban-pulse/shared-types';
 
 const ZONE_STATUS_COLORS: Record<ZoneStatus, string> = {
@@ -39,7 +42,31 @@ export default function DashboardScreen() {
     queryFn: () => api.get<{ user: any }>('/users/me'),
   });
 
-  const isDeveloper = currentUser?.user?.role === 'developer' || currentUser?.user?.role === 'admin';
+  // Feature 7: User observations for contribution map
+  const { data: userObservations } = useQuery({
+    queryKey: ['userObservations'],
+    queryFn: () =>
+      api.get<{
+        observations: Array<{
+          id: string;
+          latitude: number;
+          longitude: number;
+        }>;
+      }>('/users/me/observations'),
+  });
+
+  // Feature 8: Weekly activity
+  const { data: weeklyActivity } = useQuery({
+    queryKey: ['weeklyActivity'],
+    queryFn: () =>
+      api.get<{ activity: Array<{ date: string; count: number }> }>(
+        '/users/me/weekly-activity'
+      ),
+  });
+
+  const isDeveloper =
+    currentUser?.user?.role === 'developer' ||
+    currentUser?.user?.role === 'admin';
 
   const toggleRole = useMutation({
     mutationFn: (newRole: string) =>
@@ -49,8 +76,30 @@ export default function DashboardScreen() {
     },
   });
 
-  const activeZones = zonesSummary?.zones?.filter((z) => z.status === 'active') || [];
-  const upcomingZones = zonesSummary?.zones?.filter((z) => z.status === 'upcoming') || [];
+  const activeZones =
+    zonesSummary?.zones?.filter((z) => z.status === 'active') || [];
+  const upcomingZones =
+    zonesSummary?.zones?.filter((z) => z.status === 'upcoming') || [];
+
+  // Calculate map region from user observations
+  const mapRegion = React.useMemo(() => {
+    const obs = userObservations?.observations;
+    if (!obs || obs.length === 0) return null;
+
+    const lats = obs.map((o) => o.latitude);
+    const lngs = obs.map((o) => o.longitude);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+
+    return {
+      latitude: (minLat + maxLat) / 2,
+      longitude: (minLng + maxLng) / 2,
+      latitudeDelta: Math.max(0.01, (maxLat - minLat) * 1.5),
+      longitudeDelta: Math.max(0.01, (maxLng - minLng) * 1.5),
+    };
+  }, [userObservations]);
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -74,7 +123,11 @@ export default function DashboardScreen() {
         </View>
 
         {isLoading ? (
-          <ActivityIndicator size="large" color={colors.primary} className="mt-8" />
+          <ActivityIndicator
+            size="large"
+            color={colors.primary}
+            className="mt-8"
+          />
         ) : stats ? (
           <>
             {/* Stats grid */}
@@ -105,6 +158,11 @@ export default function DashboardScreen() {
               </View>
             </View>
 
+            {/* Feature 8: Weekly Activity Chart */}
+            {weeklyActivity?.activity && (
+              <WeeklyActivityChart activity={weeklyActivity.activity} />
+            )}
+
             {/* Streak */}
             {stats.contributionStreak > 0 && (
               <View className="mt-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
@@ -122,47 +180,115 @@ export default function DashboardScreen() {
               </View>
             )}
 
-            {/* Earnings Section */}
-            {earnings && (earnings.totalEarnedCents > 0 || earnings.pendingCents > 0) && (
-              <View className="mt-6">
-                <Text className="text-lg font-bold text-gray-900 mb-3">
-                  Earnings
-                </Text>
-                <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                  <View className="flex-row gap-4 mb-3">
-                    <View className="flex-1 items-center">
-                      <Text className="text-xs text-gray-500">Total Earned</Text>
-                      <Text className="text-xl font-bold" style={{ color: colors.bounty }}>
-                        {formatCents(earnings.totalEarnedCents)}
-                      </Text>
-                    </View>
-                    <View className="flex-1 items-center">
-                      <Text className="text-xs text-gray-500">Pending</Text>
-                      <Text className="text-xl font-bold text-gray-700">
-                        {formatCents(earnings.pendingCents)}
-                      </Text>
-                    </View>
-                  </View>
-                  {earnings.bountyBreakdown && earnings.bountyBreakdown.length > 0 && (
-                    <View className="border-t border-gray-100 pt-3">
-                      {earnings.bountyBreakdown.map((b: any, idx: number) => (
-                        <View key={idx} className="flex-row justify-between items-center py-1">
-                          <Text className="text-sm text-gray-700 flex-1" numberOfLines={1}>
-                            {b.bountyTitle}
-                          </Text>
-                          <Text className="text-sm font-medium text-gray-500 ml-2">
-                            {b.claimsCount} trees
-                          </Text>
-                          <Text className="text-sm font-semibold ml-2" style={{ color: colors.bounty }}>
-                            {formatCents(b.earnedCents)}
-                          </Text>
-                        </View>
+            {/* Feature 7: Contribution Map */}
+            <View className="mt-6">
+              <Text className="text-lg font-bold text-gray-900 mb-3">
+                Your Tree Map
+              </Text>
+              <View className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                {userObservations?.observations &&
+                userObservations.observations.length > 0 ? (
+                  <View className="h-52 rounded-2xl overflow-hidden">
+                    <MapView
+                      provider={PROVIDER_DEFAULT}
+                      style={{ flex: 1 }}
+                      initialRegion={
+                        mapRegion || {
+                          latitude: MAP_DEFAULTS.latitude,
+                          longitude: MAP_DEFAULTS.longitude,
+                          latitudeDelta: MAP_DEFAULTS.latitudeDelta,
+                          longitudeDelta: MAP_DEFAULTS.longitudeDelta,
+                        }
+                      }
+                      scrollEnabled={false}
+                      zoomEnabled={false}
+                      rotateEnabled={false}
+                      pitchEnabled={false}
+                    >
+                      {userObservations.observations.map((obs) => (
+                        <Marker
+                          key={obs.id}
+                          coordinate={{
+                            latitude: obs.latitude,
+                            longitude: obs.longitude,
+                          }}
+                          pinColor={colors.primary}
+                          tracksViewChanges={false}
+                        />
                       ))}
-                    </View>
-                  )}
-                </View>
+                    </MapView>
+                  </View>
+                ) : (
+                  <View className="h-40 items-center justify-center px-4">
+                    <Text className="text-3xl mb-2">🌱</Text>
+                    <Text className="text-sm text-gray-500 text-center">
+                      Start scanning to see your trees here!
+                    </Text>
+                  </View>
+                )}
               </View>
-            )}
+            </View>
+
+            {/* Earnings Section */}
+            {earnings &&
+              (earnings.totalEarnedCents > 0 ||
+                earnings.pendingCents > 0) && (
+                <View className="mt-6">
+                  <Text className="text-lg font-bold text-gray-900 mb-3">
+                    Earnings
+                  </Text>
+                  <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                    <View className="flex-row gap-4 mb-3">
+                      <View className="flex-1 items-center">
+                        <Text className="text-xs text-gray-500">
+                          Total Earned
+                        </Text>
+                        <Text
+                          className="text-xl font-bold"
+                          style={{ color: colors.bounty }}
+                        >
+                          {formatCents(earnings.totalEarnedCents)}
+                        </Text>
+                      </View>
+                      <View className="flex-1 items-center">
+                        <Text className="text-xs text-gray-500">Pending</Text>
+                        <Text className="text-xl font-bold text-gray-700">
+                          {formatCents(earnings.pendingCents)}
+                        </Text>
+                      </View>
+                    </View>
+                    {earnings.bountyBreakdown &&
+                      earnings.bountyBreakdown.length > 0 && (
+                        <View className="border-t border-gray-100 pt-3">
+                          {earnings.bountyBreakdown.map(
+                            (b: any, idx: number) => (
+                              <View
+                                key={idx}
+                                className="flex-row justify-between items-center py-1"
+                              >
+                                <Text
+                                  className="text-sm text-gray-700 flex-1"
+                                  numberOfLines={1}
+                                >
+                                  {b.bountyTitle}
+                                </Text>
+                                <Text className="text-sm font-medium text-gray-500 ml-2">
+                                  {b.claimsCount} trees
+                                </Text>
+                                <Text
+                                  className="text-sm font-semibold ml-2"
+                                  style={{ color: colors.bounty }}
+                                >
+                                  {formatCents(b.earnedCents)}
+                                </Text>
+                              </View>
+                            )
+                          )}
+                        </View>
+                      )}
+                  </View>
+                </View>
+              )}
 
             {/* My Zones section */}
             {activeZones.length > 0 && (
@@ -172,7 +298,10 @@ export default function DashboardScreen() {
                 </Text>
                 {activeZones.map((zone) => {
                   const statusColor = ZONE_STATUS_COLORS[zone.status];
-                  const progressWidth = Math.min(100, Math.max(0, zone.progressPercentage));
+                  const progressWidth = Math.min(
+                    100,
+                    Math.max(0, zone.progressPercentage)
+                  );
                   return (
                     <Pressable
                       key={zone.id}
@@ -193,7 +322,8 @@ export default function DashboardScreen() {
                           style={{ backgroundColor: statusColor }}
                         >
                           <Text className="text-[10px] font-semibold text-white">
-                            {zone.status.charAt(0).toUpperCase() + zone.status.slice(1)}
+                            {zone.status.charAt(0).toUpperCase() +
+                              zone.status.slice(1)}
                           </Text>
                         </View>
                       </View>
@@ -214,9 +344,15 @@ export default function DashboardScreen() {
                       <View className="flex-row justify-between">
                         <Text className="text-xs text-gray-500">
                           {zone.treesMappedCount}
-                          {zone.treeTargetCount ? `/${zone.treeTargetCount}` : ''} trees
+                          {zone.treeTargetCount
+                            ? `/${zone.treeTargetCount}`
+                            : ''}{' '}
+                          trees
                         </Text>
-                        <Text className="text-xs font-medium" style={{ color: statusColor }}>
+                        <Text
+                          className="text-xs font-medium"
+                          style={{ color: statusColor }}
+                        >
                           {zone.progressPercentage}%
                         </Text>
                       </View>
@@ -241,7 +377,9 @@ export default function DashboardScreen() {
                       {zone.displayName}
                     </Text>
                     <Text className="text-xs text-gray-400">
-                      {zone.zoneType === 'zip_code' ? 'Zip Code' : 'Street Corridor'}
+                      {zone.zoneType === 'zip_code'
+                        ? 'Zip Code'
+                        : 'Street Corridor'}
                     </Text>
                   </View>
                 ))}
@@ -268,7 +406,10 @@ export default function DashboardScreen() {
                     onValueChange={(val) => {
                       toggleRole.mutate(val ? 'developer' : 'user');
                     }}
-                    trackColor={{ false: '#E5E7EB', true: colors.bountyLight }}
+                    trackColor={{
+                      false: '#E5E7EB',
+                      true: colors.bountyLight,
+                    }}
                     thumbColor={isDeveloper ? colors.bounty : '#f4f3f4'}
                   />
                 </View>

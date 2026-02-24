@@ -81,12 +81,14 @@ interface ScanState {
   notes: string;
   lastBountyClaim: BountyClaimInfo | null;
   inspection: InspectionState;
+  angle1Heading: number | null;
   addPhoto: (photo: ScanPhoto) => void;
   setLocation: (lat: number, lng: number, accuracy: number) => void;
   setNearbyTree: (treeId: string | null) => void;
   setNotes: (notes: string) => void;
   setLastBountyClaim: (claim: BountyClaimInfo | null) => void;
   setInspection: (data: Partial<InspectionState>) => void;
+  setAngle1Heading: (heading: number | null) => void;
   reset: () => void;
 }
 
@@ -99,6 +101,7 @@ export const useScanStore = create<ScanState>((set) => ({
   notes: '',
   lastBountyClaim: null,
   inspection: { ...defaultInspection },
+  angle1Heading: null,
   addPhoto: (photo) =>
     set((state) => ({ photos: [...state.photos, photo] })),
   setLocation: (latitude, longitude, gpsAccuracy) =>
@@ -110,6 +113,7 @@ export const useScanStore = create<ScanState>((set) => ({
     set((state) => ({
       inspection: { ...state.inspection, ...data },
     })),
+  setAngle1Heading: (angle1Heading) => set({ angle1Heading }),
   reset: () =>
     set({
       photos: [],
@@ -120,5 +124,6 @@ export const useScanStore = create<ScanState>((set) => ({
       notes: '',
       lastBountyClaim: null,
       inspection: { ...defaultInspection },
+      angle1Heading: null,
     }),
 }));

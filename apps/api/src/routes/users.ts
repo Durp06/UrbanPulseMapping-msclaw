@@ -24,6 +24,26 @@ export async function userRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // GET /api/users/me/observations — user's observations with coordinates
+  fastify.get(
+    '/api/users/me/observations',
+    { preHandler: [authMiddleware] },
+    async (request, _reply) => {
+      const observations = await userService.getUserObservations(request.user.id);
+      return { observations };
+    }
+  );
+
+  // GET /api/users/me/weekly-activity — scans per day for last 7 days
+  fastify.get(
+    '/api/users/me/weekly-activity',
+    { preHandler: [authMiddleware] },
+    async (request, _reply) => {
+      const activity = await userService.getWeeklyActivity(request.user.id);
+      return { activity };
+    }
+  );
+
   // PATCH /api/users/me
   fastify.patch(
     '/api/users/me',

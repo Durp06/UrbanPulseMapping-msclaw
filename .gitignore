@@ -44,3 +44,7 @@ coverage/
 
 # Drizzle
 apps/api/drizzle/meta/
+
+# Firebase
+firebase-service-account.json
+GoogleService-Info.plist

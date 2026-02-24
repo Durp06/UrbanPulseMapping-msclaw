@@ -1,9 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
-import MapView, { PROVIDER_DEFAULT, Region } from 'react-native-maps';
+import ClusteredMapView from 'react-native-map-clustering';
+import { PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import { TreePin } from './TreePin';
 import { ZoneOverlay, BountyOverlay } from './ZoneOverlay';
 import { MAP_DEFAULTS } from '../constants/config';
+import { colors } from '../constants/colors';
 import type { Tree, ZoneFeature } from '@urban-pulse/shared-types';
 
 interface TreeMapProps {
@@ -35,7 +37,7 @@ export function TreeMap({
   showBounties = false,
   onBountyPress,
 }: TreeMapProps) {
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
 
   const initialRegion = {
     latitude: userLatitude || MAP_DEFAULTS.latitude,
@@ -46,7 +48,7 @@ export function TreeMap({
 
   return (
     <View className="flex-1">
-      <MapView
+      <ClusteredMapView
         ref={mapRef}
         style={StyleSheet.absoluteFillObject}
         provider={PROVIDER_DEFAULT}
@@ -54,6 +56,10 @@ export function TreeMap({
         showsUserLocation
         showsMyLocationButton
         onRegionChangeComplete={onRegionChange}
+        clusterColor={colors.primary}
+        clusterTextColor="#FFFFFF"
+        radius={60}
+        minPoints={3}
         onPress={() => {
           onTreePress?.(null as unknown as Tree);
           onZonePress?.('');
@@ -73,7 +79,7 @@ export function TreeMap({
             zoneViewActive={zoneViewActive}
           />
         ))}
-      </MapView>
+      </ClusteredMapView>
     </View>
   );
 }

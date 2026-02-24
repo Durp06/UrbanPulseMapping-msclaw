@@ -18,17 +18,22 @@ declare module 'fastify' {
 // Dev user ID — consistent UUID for development
 const DEV_USER_ID = '00000000-0000-0000-0000-000000000001';
 
+// Check if Firebase is properly configured (not placeholder values)
+function isFirebaseConfigured(): boolean {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  return !!(
+    projectId &&
+    !projectId.startsWith('your-') &&
+    projectId !== 'your-firebase-project-id'
+  );
+}
+
 export async function authMiddleware(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
   // Dev mode: skip Firebase auth when no Firebase credentials configured
-  if (
-    process.env.NODE_ENV === 'development' &&
-    !process.env.FIREBASE_PROJECT_ID?.startsWith('your-')
-    ? !process.env.FIREBASE_PROJECT_ID
-    : true
-  ) {
+  if (!isFirebaseConfigured()) {
     // Ensure dev user exists in database (upsert to avoid race condition)
     const existing = await db
       .select()
@@ -50,7 +55,7 @@ export async function authMiddleware(
       firebaseUid: 'dev-user-123',
       email: 'dev@urbanpulse.test',
       displayName: 'Dev User',
-      role: (existing[0] as any)?.role || 'user',
+      role: existing[0]?.role || 'user',
     };
     return;
   }
@@ -83,7 +88,7 @@ export async function authMiddleware(
 
     const decoded = await admin.auth().verifyIdToken(token);
 
-    // Find or create user
+    // Upsert user by firebase_uid
     let dbUser = await db
       .select()
       .from(schema.users)
@@ -99,8 +104,19 @@ export async function authMiddleware(
           displayName: decoded.name || null,
           avatarUrl: decoded.picture || null,
         })
+        .onConflictDoNothing()
         .returning();
-      dbUser = [newUser];
+
+      if (newUser) {
+        dbUser = [newUser];
+      } else {
+        // Race condition: user was created between SELECT and INSERT
+        dbUser = await db
+          .select()
+          .from(schema.users)
+          .where(eq(schema.users.firebaseUid, decoded.uid))
+          .limit(1);
+      }
     }
 
     request.user = {
@@ -108,7 +124,7 @@ export async function authMiddleware(
       firebaseUid: decoded.uid,
       email: dbUser[0].email,
       displayName: dbUser[0].displayName,
-      role: (dbUser[0] as any).role || 'user',
+      role: dbUser[0].role || 'user',
     };
   } catch (error) {
     return reply.status(401).send({

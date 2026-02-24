@@ -26,3 +26,15 @@ export function useTrees(
     refetchOnWindowFocus: true,
   });
 }
+
+export function useUserTrees(userId?: string) {
+  return useQuery({
+    queryKey: ['userTrees', userId],
+    queryFn: () =>
+      api.get<{ observations: Array<{ latitude: number; longitude: number; treeId: string | null; id: string }> }>(
+        '/users/me/observations'
+      ),
+    enabled: !!userId,
+    staleTime: 60_000,
+  });
+}

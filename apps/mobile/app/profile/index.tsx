@@ -37,8 +37,8 @@ export default function ProfileScreen() {
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: () => {
-          signOut();
+        onPress: async () => {
+          await signOut();
           router.dismissAll();
         },
       },

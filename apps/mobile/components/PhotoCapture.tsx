@@ -4,6 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { Asset } from 'expo-asset';
 import { colors } from '../constants/colors';
+import { detectBlur } from '../lib/blur-detection';
 
 interface PhotoCaptureProps {
   instruction: string;
@@ -30,13 +31,30 @@ export function PhotoCapture({
   const [preview, setPreview] = useState<string | null>(null);
   const [showTips, setShowTips] = useState(false);
 
+  const checkBlurAndSetPreview = async (uri: string) => {
+    const { isBlurry } = await detectBlur(uri);
+
+    if (isBlurry) {
+      Alert.alert(
+        'Photo looks blurry',
+        'This photo might be blurry. Would you like to retake it?',
+        [
+          { text: 'Retake', onPress: () => setPreview(null) },
+          { text: 'Use Anyway', onPress: () => setPreview(uri) },
+        ]
+      );
+    } else {
+      setPreview(uri);
+    }
+  };
+
   const handleCapture = async () => {
     if (!cameraRef.current) return;
 
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
       if (photo?.uri) {
-        setPreview(photo.uri);
+        await checkBlurAndSetPreview(photo.uri);
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to capture photo');
@@ -62,7 +80,7 @@ export function PhotoCapture({
     });
 
     if (!result.canceled && result.assets[0]) {
-      setPreview(result.assets[0].uri);
+      await checkBlurAndSetPreview(result.assets[0].uri);
     }
   };
 

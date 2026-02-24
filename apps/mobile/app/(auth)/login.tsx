@@ -7,17 +7,39 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../hooks/useAuth';
 import { colors } from '../../constants/colors';
+
+function getFirebaseErrorMessage(code: string): string {
+  switch (code) {
+    case 'auth/invalid-email':
+      return 'Invalid email address.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled.';
+    case 'auth/user-not-found':
+      return 'No account found with this email.';
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+      return 'Invalid email or password.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Try again later.';
+    case 'auth/network-request-failed':
+      return 'Network error. Check your connection.';
+    default:
+      return 'Sign in failed. Please try again.';
+  }
+}
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, signInWithApple, signInWithGoogle } = useAuth();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -30,14 +52,43 @@ export default function LoginScreen() {
       await signIn(email, password);
       router.replace('/');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to sign in');
+      Alert.alert('Error', getFirebaseErrorMessage(error.code));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setLoading(true);
+    try {
+      await signInWithApple();
+      router.replace('/');
+    } catch (error: any) {
+      if (error.code !== 'ERR_REQUEST_CANCELED') {
+        Alert.alert('Error', error.message || 'Apple sign-in failed');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      await signInWithGoogle();
+      router.replace('/');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Google sign-in failed');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: colors.primaryDark }}>
+    <LinearGradient
+      colors={[colors.primaryDark, colors.primary]}
+      className="flex-1"
+    >
       <SafeAreaView className="flex-1">
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -45,10 +96,8 @@ export default function LoginScreen() {
         >
           {/* Logo */}
           <View className="items-center mb-8">
-            <Text className="text-4xl mb-2">🌳</Text>
-            <Text className="text-2xl font-bold text-white">
-              Urban Pulse
-            </Text>
+            <Text className="text-5xl mb-2">🌳</Text>
+            <Text className="text-3xl font-bold text-white">Urban Pulse</Text>
             <Text className="text-sm text-white/70 mt-1">
               Map the urban forest
             </Text>
@@ -66,8 +115,10 @@ export default function LoginScreen() {
               placeholderTextColor="#9CA3AF"
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
               value={email}
               onChangeText={setEmail}
+              editable={!loading}
             />
 
             <TextInput
@@ -77,6 +128,7 @@ export default function LoginScreen() {
               secureTextEntry
               value={password}
               onChangeText={setPassword}
+              editable={!loading}
             />
 
             <Pressable
@@ -87,9 +139,13 @@ export default function LoginScreen() {
               onPress={handleLogin}
               disabled={loading}
             >
-              <Text className="text-white font-semibold text-lg">
-                {loading ? 'Signing In...' : 'Sign In'}
-              </Text>
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text className="text-white font-semibold text-lg">
+                  Sign In
+                </Text>
+              )}
             </Pressable>
 
             {/* Divider */}
@@ -99,15 +155,25 @@ export default function LoginScreen() {
               <View className="flex-1 h-px bg-gray-200" />
             </View>
 
-            {/* Apple Sign-In */}
-            <Pressable className="py-4 rounded-xl items-center bg-black mb-3">
-              <Text className="text-white font-semibold text-lg">
-                Continue with Apple
-              </Text>
-            </Pressable>
+            {/* Apple Sign-In (iOS only) */}
+            {Platform.OS === 'ios' && (
+              <Pressable
+                className="py-4 rounded-xl items-center bg-black mb-3"
+                onPress={handleAppleSignIn}
+                disabled={loading}
+              >
+                <Text className="text-white font-semibold text-lg">
+                   Continue with Apple
+                </Text>
+              </Pressable>
+            )}
 
             {/* Google Sign-In */}
-            <Pressable className="py-4 rounded-xl items-center bg-white border border-gray-200">
+            <Pressable
+              className="py-4 rounded-xl items-center bg-white border border-gray-200"
+              onPress={handleGoogleSignIn}
+              disabled={loading}
+            >
               <Text className="text-gray-700 font-semibold text-lg">
                 Continue with Google
               </Text>
@@ -125,6 +191,6 @@ export default function LoginScreen() {
           </Pressable>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </View>
+    </LinearGradient>
   );
 }
