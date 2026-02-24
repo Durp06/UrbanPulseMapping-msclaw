@@ -1,34 +1,9 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  updateProfile,
-  signOut as firebaseSignOut,
-  onAuthStateChanged,
-  OAuthProvider,
-  signInWithCredential,
-  GoogleAuthProvider,
-  type User as FirebaseUser,
-} from 'firebase/auth';
+import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useAuthStore } from './store';
 
-const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-};
-
-// Initialize Firebase
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-
-export { auth };
+type FirebaseUser = FirebaseAuthTypes.User;
 
 async function setUserFromFirebase(firebaseUser: FirebaseUser) {
   const token = await firebaseUser.getIdToken();
@@ -48,7 +23,7 @@ async function setUserFromFirebase(firebaseUser: FirebaseUser) {
 }
 
 export async function signIn(email: string, password: string) {
-  const credential = await signInWithEmailAndPassword(auth, email, password);
+  const credential = await auth().signInWithEmailAndPassword(email, password);
   await setUserFromFirebase(credential.user);
 }
 
@@ -57,8 +32,8 @@ export async function signUp(
   email: string,
   password: string
 ) {
-  const credential = await createUserWithEmailAndPassword(auth, email, password);
-  await updateProfile(credential.user, { displayName });
+  const credential = await auth().createUserWithEmailAndPassword(email, password);
+  await credential.user.updateProfile({ displayName });
   await setUserFromFirebase(credential.user);
 }
 
@@ -74,25 +49,22 @@ export async function signInWithApple() {
     throw new Error('Apple sign-in failed: no identity token');
   }
 
-  const provider = new OAuthProvider('apple.com');
-  const oauthCredential = provider.credential({
-    idToken: appleCredential.identityToken,
-  });
+  const oauthCredential = auth.AppleAuthProvider.credential(
+    appleCredential.identityToken,
+    appleCredential.authorizationCode || ''
+  );
 
-  const result = await signInWithCredential(auth, oauthCredential);
+  const result = await auth().signInWithCredential(oauthCredential);
 
-  // Update display name from Apple if available and not already set
-  if (
-    appleCredential.fullName?.givenName &&
-    !result.user.displayName
-  ) {
+  // Update display name from Apple if available
+  if (appleCredential.fullName?.givenName && !result.user.displayName) {
     const name = [
       appleCredential.fullName.givenName,
       appleCredential.fullName.familyName,
     ]
       .filter(Boolean)
       .join(' ');
-    await updateProfile(result.user, { displayName: name });
+    await result.user.updateProfile({ displayName: name });
   }
 
   await setUserFromFirebase(result.user);
@@ -112,31 +84,30 @@ export async function signInWithGoogle() {
       throw new Error('Google sign-in failed: no ID token');
     }
 
-    const googleCredential = GoogleAuthProvider.credential(idToken);
-    const result = await signInWithCredential(auth, googleCredential);
+    const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+    const result = await auth().signInWithCredential(googleCredential);
     await setUserFromFirebase(result.user);
   } catch (error: any) {
     if (error?.code === 'SIGN_IN_CANCELLED') {
-      return; // User cancelled — not an error
+      return;
     }
     throw error;
   }
 }
 
 export async function signOut() {
-  await firebaseSignOut(auth);
+  await auth().signOut();
   useAuthStore.getState().clearAuth();
 }
 
 export function onAuthChange(
   callback: (user: FirebaseUser | null) => void
 ) {
-  return onAuthStateChanged(auth, callback);
+  return auth().onAuthStateChanged(callback);
 }
 
-// Refresh the token periodically (Firebase tokens expire after 1 hour)
 export async function refreshToken(): Promise<string | null> {
-  const currentUser = auth.currentUser;
+  const currentUser = auth().currentUser;
   if (!currentUser) return null;
   const token = await currentUser.getIdToken(true);
   useAuthStore.getState().setAuth({

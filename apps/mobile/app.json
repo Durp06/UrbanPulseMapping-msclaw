@@ -20,7 +20,8 @@
         "NSLocationAlwaysUsageDescription": "Urban Pulse uses your location to map trees even in the background.",
         "NSCameraUsageDescription": "Urban Pulse needs camera access to photograph trees for the inventory.",
         "NSPhotoLibraryUsageDescription": "Urban Pulse needs photo library access to select tree photos."
-      }
+      },
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "plugins": [
       "expo-router",
@@ -41,6 +42,16 @@
         "expo-image-picker",
         {
           "photosPermission": "Urban Pulse needs photo library access to select tree photos."
+        }
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
         }
       ]
     ],

@@ -36,9 +36,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff' }}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text className="mt-4 text-gray-500 text-sm">Loading...</Text>
+        <Text style={{ marginTop: 16, color: '#6b7280', fontSize: 14 }}>Loading Urban Pulse...</Text>
       </View>
     );
   }
