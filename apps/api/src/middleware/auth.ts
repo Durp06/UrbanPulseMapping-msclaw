@@ -73,6 +73,33 @@ export async function authMiddleware(
   try {
     const token = authHeader.slice(7);
 
+    // Dev mode bypass: allow "dev-token" even when Firebase is configured
+    if (process.env.NODE_ENV === 'development' && token === 'dev-token') {
+      const existing = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.firebaseUid, 'dev-user-123'))
+        .limit(1);
+
+      if (existing.length === 0) {
+        await db.insert(schema.users).values({
+          id: DEV_USER_ID,
+          firebaseUid: 'dev-user-123',
+          email: 'dev@urbanpulse.test',
+          displayName: 'Dev User',
+        }).onConflictDoNothing();
+      }
+
+      request.user = {
+        id: existing[0]?.id || DEV_USER_ID,
+        firebaseUid: 'dev-user-123',
+        email: 'dev@urbanpulse.test',
+        displayName: 'Dev User',
+        role: existing[0]?.role || 'user',
+      };
+      return;
+    }
+
     // Dynamic import firebase-admin to avoid issues when not configured
     const admin = await import('firebase-admin');
 
