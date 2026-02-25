@@ -18,9 +18,18 @@ config.resolver.nodeModulesPaths = [
 ];
 
 // pnpm uses symlinks that Metro can't follow.
-// Resolve firebase and @firebase packages to their real paths.
+// Force React to resolve to a single copy to avoid "useMemo of null" crashes
+const reactPath = fs.realpathSync(require.resolve('react', { paths: [projectRoot] }));
+const reactDir = path.dirname(reactPath);
+
 const originalResolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // Force all react imports to the same physical location
+  if (moduleName === 'react' || moduleName === 'react/jsx-runtime' || moduleName === 'react/jsx-dev-runtime') {
+    const suffix = moduleName === 'react' ? 'index.js' : moduleName.split('/').pop() + '.js';
+    return { type: 'sourceFile', filePath: path.join(reactDir, suffix) };
+  }
+
   // Handle firebase/* and @firebase/* modules that are behind pnpm symlinks
   if (moduleName.startsWith('firebase/') || moduleName === 'firebase' ||
       moduleName.startsWith('@firebase/')) {
@@ -65,5 +74,18 @@ const pnpmStore = path.resolve(monorepoRoot, "node_modules/.pnpm");
 if (fs.existsSync(pnpmStore)) {
   config.watchFolders.push(pnpmStore);
 }
+
+// Inject hermes-polyfill before all modules
+const polyfillPath = path.resolve(projectRoot, "hermes-polyfill.js");
+const originalGetPolyfills = config.serializer?.getPolyfills;
+config.serializer = {
+  ...config.serializer,
+  getPolyfills: (options) => {
+    const defaultPolyfills = originalGetPolyfills 
+      ? originalGetPolyfills(options) 
+      : require(require.resolve('@react-native/js-polyfills', { paths: [projectRoot] }))();
+    return [...defaultPolyfills, polyfillPath];
+  },
+};
 
 module.exports = withNativeWind(config, { input: "./global.css" });
