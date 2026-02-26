@@ -9,7 +9,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, Redirect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../hooks/useAuth';
@@ -39,7 +39,12 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signInWithApple, signInWithGoogle } = useAuth();
+  const { signIn, signInWithApple, signInWithGoogle, isAuthenticated } = useAuth();
+
+  // Redirect to home if already authenticated
+  if (isAuthenticated) {
+    return <Redirect href="/" />;
+  }
 
   const handleLogin = async () => {
     if (!email || !password) {

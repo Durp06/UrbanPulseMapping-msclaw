@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GPSIndicator } from '../../components/GPSIndicator';
 import { useLocation } from '../../hooks/useLocation';
@@ -109,7 +109,7 @@ export default function ScanIntro() {
         </Pressable>
         <Pressable
           className="py-3 mb-4 items-center"
-          onPress={() => router.back()}
+          onPress={() => router.canGoBack() ? router.back() : router.replace("/")}
         >
           <Text className="text-gray-500 font-medium">Cancel</Text>
         </Pressable>
@@ -153,7 +153,7 @@ export default function ScanIntro() {
         </Pressable>
         <Pressable
           className="py-3 mb-4 items-center"
-          onPress={() => router.back()}
+          onPress={() => router.canGoBack() ? router.back() : router.replace("/")}
         >
           <Text className="text-gray-500 font-medium">Cancel</Text>
         </Pressable>
@@ -195,7 +195,7 @@ export default function ScanIntro() {
       </Pressable>
       <Pressable
         className="py-3 mb-4 items-center"
-        onPress={() => router.back()}
+        onPress={() => router.canGoBack() ? router.back() : router.replace("/")}
       >
         <Text className="text-gray-500 font-medium">Cancel</Text>
       </Pressable>

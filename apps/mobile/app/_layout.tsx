@@ -1,11 +1,10 @@
 import React from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, Redirect } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../hooks/useAuth';
 import { colors } from '../constants/colors';
-import { ErrorBoundary } from '../components/ErrorBoundary';
 import '../global.css';
 
 const queryClient = new QueryClient({
@@ -17,22 +16,8 @@ const queryClient = new QueryClient({
   },
 });
 
-function AuthGuard({ children }: { children: React.ReactNode }) {
+export default function RootLayout() {
   const { isAuthenticated, isLoading } = useAuth();
-  const segments = useSegments();
-  const router = useRouter();
-
-  React.useEffect(() => {
-    if (isLoading) return;
-
-    const inAuthGroup = segments[0] === '(auth)';
-
-    if (!isAuthenticated && !inAuthGroup) {
-      router.replace('/(auth)/login');
-    } else if (isAuthenticated && inAuthGroup) {
-      router.replace('/');
-    }
-  }, [isAuthenticated, isLoading, segments]);
 
   if (isLoading) {
     return (
@@ -43,39 +28,31 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
-}
-
-export default function RootLayout() {
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AuthGuard>
-          <StatusBar style="dark" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen
-              name="scan"
-              options={{
-                presentation: 'modal',
-                animation: 'slide_from_bottom',
-              }}
-            />
-            <Stack.Screen name="dashboard/index" />
-            <Stack.Screen name="bounties/index" />
-            <Stack.Screen name="developer/index" />
-            <Stack.Screen name="developer/create-bounty" />
-            <Stack.Screen name="developer/bounty-detail" />
-            <Stack.Screen name="profile/index" />
-            <Stack.Screen name="(auth)/login" />
-            <Stack.Screen name="(auth)/register" />
-          </Stack>
-        </AuthGuard>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <StatusBar style="dark" />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen
+          name="scan"
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+          }}
+        />
+        <Stack.Screen name="dashboard/index" />
+        <Stack.Screen name="bounties/index" />
+        <Stack.Screen name="developer/index" />
+        <Stack.Screen name="developer/create-bounty" />
+        <Stack.Screen name="developer/bounty-detail" />
+        <Stack.Screen name="profile/index" />
+        <Stack.Screen name="(auth)/login" />
+        <Stack.Screen name="(auth)/register" />
+      </Stack>
+    </QueryClientProvider>
   );
 }

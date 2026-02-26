@@ -53,21 +53,28 @@ function SegmentedControl<T extends string>({
   labels?: Record<T, string>;
 }) {
   return (
-    <View className="flex-row bg-gray-100 rounded-xl p-1">
+    <View style={{ flexDirection: 'row', backgroundColor: '#F3F4F6', borderRadius: 12, padding: 4 }}>
       {options.map((opt) => {
         const selected = value === opt;
         return (
           <Pressable
             key={opt}
-            className={`flex-1 py-2.5 rounded-lg items-center ${
-              selected ? 'bg-white shadow-sm' : ''
-            }`}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 8,
+              alignItems: 'center',
+              backgroundColor: selected ? '#fff' : 'transparent',
+              ...(selected ? { shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 } : {}),
+            }}
             onPress={() => onChange(opt)}
           >
             <Text
-              className={`text-sm font-medium ${
-                selected ? 'text-gray-900' : 'text-gray-500'
-              }`}
+              style={{
+                fontSize: 14,
+                fontWeight: '500',
+                color: selected ? '#111827' : '#6B7280',
+              }}
             >
               {labels ? labels[opt] : opt.charAt(0).toUpperCase() + opt.slice(1)}
             </Text>
@@ -95,24 +102,28 @@ function ChipSelector<T extends string>({
   };
 
   return (
-    <View className="flex-row flex-wrap gap-2">
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {options.map((opt) => {
         const active = isSelected(opt);
         return (
           <Pressable
             key={opt}
-            className={`px-4 py-2 rounded-full border ${
-              active
-                ? 'border-primary bg-primary/10'
-                : 'border-gray-200 bg-white'
-            }`}
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 9999,
+              borderWidth: 1,
+              borderColor: active ? colors.primary : '#E5E7EB',
+              backgroundColor: active ? `${colors.primary}15` : '#fff',
+            }}
             onPress={() => onToggle(opt)}
           >
             <Text
-              className={`text-sm font-medium ${
-                active ? 'text-primary' : 'text-gray-600'
-              }`}
-              style={active ? { color: colors.primary } : undefined}
+              style={{
+                fontSize: 14,
+                fontWeight: '500',
+                color: active ? colors.primary : '#4B5563',
+              }}
             >
               {labels ? labels[opt] : opt.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
             </Text>

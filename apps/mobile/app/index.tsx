@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, Pressable, ActivityIndicator, Modal, ScrollView } from 'react-native';
-import { router } from 'expo-router';
+import { router, Redirect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TreeMap } from '../components/TreeMap';
 import { ScanButton } from '../components/ScanButton';
@@ -37,7 +37,12 @@ function hasActiveFilters(filters: Filters): boolean {
 }
 
 export default function MapScreen() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
   const location = useLocation();
   const [mapCenter, setMapCenter] = useState<{
     lat: number;

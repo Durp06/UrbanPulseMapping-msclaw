@@ -1,5 +1,5 @@
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { colors } from '../constants/colors';
 
 interface ErrorBoundaryProps {
@@ -40,29 +40,24 @@ export class ErrorBoundary extends Component<
       }
 
       return (
-        <View className="flex-1 items-center justify-center bg-white px-8">
-          <Text className="text-5xl mb-4">⚠️</Text>
-          <Text className="text-xl font-bold text-gray-900 mb-2 text-center">
-            Something went wrong
-          </Text>
-          <Text className="text-sm text-gray-500 mb-6 text-center">
+        <View style={styles.container}>
+          <Text style={styles.emoji}>⚠️</Text>
+          <Text style={styles.title}>Something went wrong</Text>
+          <Text style={styles.subtitle}>
             An unexpected error occurred. Please try again.
           </Text>
           {__DEV__ && this.state.error && (
-            <View className="bg-red-50 rounded-xl p-3 mb-4 w-full">
-              <Text className="text-xs text-red-700 font-mono">
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>
                 {this.state.error.message}
               </Text>
             </View>
           )}
           <Pressable
-            className="py-3.5 px-8 rounded-xl"
-            style={{ backgroundColor: colors.primary }}
+            style={styles.retryButton}
             onPress={this.handleRetry}
           >
-            <Text className="text-white font-semibold text-base">
-              Tap to Retry
-            </Text>
+            <Text style={styles.retryText}>Tap to Retry</Text>
           </Pressable>
         </View>
       );
@@ -71,3 +66,53 @@ export class ErrorBoundary extends Component<
     return this.props.children;
   }
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 32,
+  },
+  emoji: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  errorBox: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    width: '100%',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#B91C1C',
+    fontFamily: 'monospace',
+  },
+  retryButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+  },
+  retryText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+});

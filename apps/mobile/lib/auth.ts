@@ -1,6 +1,6 @@
 /**
  * Mock auth - Firebase removed temporarily to debug rendering issues.
- * All auth operations are no-ops; user is always unauthenticated.
+ * Signs in with dev-token, persists in zustand store.
  */
 import { useAuthStore } from './store';
 
@@ -12,8 +12,25 @@ type FirebaseUser = {
   getIdToken: (forceRefresh?: boolean) => Promise<string>;
 };
 
+// Track mock auth state so onAuthChange doesn't fight signIn
+let _mockUser: FirebaseUser | null = null;
+let _authChangeCallback: ((user: FirebaseUser | null) => void) | null = null;
+
+function notifyAuthChange() {
+  if (_authChangeCallback) {
+    _authChangeCallback(_mockUser);
+  }
+}
+
 export async function signIn(_email: string, _password: string) {
   console.log('[auth-mock] signIn called');
+  _mockUser = {
+    uid: 'dev-user-123',
+    email: _email,
+    displayName: 'Dev User',
+    photoURL: null,
+    getIdToken: async () => 'dev-token',
+  };
   useAuthStore.getState().setAuth({
     token: 'dev-token',
     user: {
@@ -27,6 +44,7 @@ export async function signIn(_email: string, _password: string) {
       updatedAt: new Date().toISOString(),
     },
   });
+  notifyAuthChange();
 }
 
 export async function signUp(_displayName: string, _email: string, _password: string) {
@@ -42,14 +60,19 @@ export async function signInWithGoogle() {
 }
 
 export async function signOut() {
+  _mockUser = null;
   useAuthStore.getState().clearAuth();
+  notifyAuthChange();
 }
 
 export function onAuthChange(callback: (user: FirebaseUser | null) => void): () => void {
-  // Immediately fire with null (not authenticated)
-  console.log('[auth-mock] onAuthChange - firing null');
-  setTimeout(() => callback(null), 100);
-  return () => {};
+  _authChangeCallback = callback;
+  // Fire with current state (null on first load = not authenticated)
+  console.log('[auth-mock] onAuthChange - firing with current user:', _mockUser?.uid ?? 'null');
+  setTimeout(() => callback(_mockUser), 100);
+  return () => {
+    _authChangeCallback = null;
+  };
 }
 
 export async function refreshToken(): Promise<string | null> {
