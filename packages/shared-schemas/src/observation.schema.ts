@@ -10,4 +10,5 @@ export {
   aiSpeciesResultSchema,
   aiHealthResultSchema,
   aiMeasurementResultSchema,
+  treeObservationSchema,
 } from './tree.schema';

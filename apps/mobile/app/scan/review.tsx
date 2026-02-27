@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, TextInput } from 'react-native';
+import { View, Text, Pressable, TextInput, Switch } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
@@ -59,6 +59,16 @@ export default function ReviewScreen() {
         {/* GPS accuracy */}
         <View className="mt-3">
           <GPSIndicator accuracy={scanState.gpsAccuracy} size="large" />
+        </View>
+
+        {/* AI Analysis Toggle */}
+        <View className="mt-4 flex-row items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3">
+          <Text className="text-base text-gray-900 font-medium">🤖 AI Analysis</Text>
+          <Switch
+            value={scanState.aiEnabled}
+            onValueChange={scanState.setAiEnabled}
+            trackColor={{ false: '#D1D5DB', true: colors.primary }}
+          />
         </View>
 
         {/* Notes */}

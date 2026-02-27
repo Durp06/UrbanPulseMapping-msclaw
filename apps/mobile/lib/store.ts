@@ -82,6 +82,7 @@ interface ScanState {
   lastBountyClaim: BountyClaimInfo | null;
   inspection: InspectionState;
   angle1Heading: number | null;
+  aiEnabled: boolean;
   addPhoto: (photo: ScanPhoto) => void;
   setLocation: (lat: number, lng: number, accuracy: number) => void;
   setNearbyTree: (treeId: string | null) => void;
@@ -89,6 +90,7 @@ interface ScanState {
   setLastBountyClaim: (claim: BountyClaimInfo | null) => void;
   setInspection: (data: Partial<InspectionState>) => void;
   setAngle1Heading: (heading: number | null) => void;
+  setAiEnabled: (enabled: boolean) => void;
   reset: () => void;
 }
 
@@ -102,6 +104,7 @@ export const useScanStore = create<ScanState>((set) => ({
   lastBountyClaim: null,
   inspection: { ...defaultInspection },
   angle1Heading: null,
+  aiEnabled: true,
   addPhoto: (photo) =>
     set((state) => ({ photos: [...state.photos, photo] })),
   setLocation: (latitude, longitude, gpsAccuracy) =>
@@ -114,6 +117,7 @@ export const useScanStore = create<ScanState>((set) => ({
       inspection: { ...state.inspection, ...data },
     })),
   setAngle1Heading: (angle1Heading) => set({ angle1Heading }),
+  setAiEnabled: (aiEnabled) => set({ aiEnabled }),
   reset: () =>
     set({
       photos: [],
@@ -125,5 +129,6 @@ export const useScanStore = create<ScanState>((set) => ({
       lastBountyClaim: null,
       inspection: { ...defaultInspection },
       angle1Heading: null,
+      aiEnabled: true,
     }),
 }));

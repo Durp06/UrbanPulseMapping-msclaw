@@ -15,7 +15,7 @@ export function useSubmission() {
 
   const mutation = useMutation({
     mutationFn: async (): Promise<CreateObservationResponse> => {
-      const { photos, latitude, longitude, gpsAccuracy, notes, inspection } = scanState;
+      const { photos, latitude, longitude, gpsAccuracy, notes, inspection, aiEnabled } = scanState;
 
       if (!latitude || !longitude) {
         throw new Error('Location not available');
@@ -78,6 +78,7 @@ export function useSubmission() {
             photos: photoKeys,
             notes: notes || undefined,
             inspection: Object.keys(inspectionPayload).length > 0 ? inspectionPayload : undefined,
+            skipAi: aiEnabled ? undefined : true,
           }
         );
 

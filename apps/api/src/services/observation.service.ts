@@ -30,10 +30,11 @@ interface CreateObservationInput {
   photos: Array<{ photoType: string; storageKey: string }>;
   notes?: string;
   inspection?: InspectionInput;
+  skipAi?: boolean;
 }
 
 export async function createObservation(input: CreateObservationInput) {
-  const { userId, latitude, longitude, gpsAccuracyMeters, photos, notes, inspection } = input;
+  const { userId, latitude, longitude, gpsAccuracyMeters, photos, notes, inspection, skipAi } = input;
 
   // 1. Deduplication: find nearby tree
   const nearbyTree = await findNearestTree(longitude, latitude);
@@ -135,14 +136,24 @@ export async function createObservation(input: CreateObservationInput) {
   // 4. Check and potentially set cooldown
   await checkAndSetCooldown(treeId);
 
-  // 5. Queue for processing (moves to pending_ai)
-  await addProcessingJob(observation.id);
-
-  // 6. Update status to pending_ai
-  await db
-    .update(schema.observations)
-    .set({ status: 'pending_ai', updatedAt: new Date() })
-    .where(eq(schema.observations.id, observation.id));
+  // 5. Queue for AI processing or skip
+  let finalStatus: 'pending_ai' | 'pending_review';
+  if (skipAi) {
+    // Skip AI pipeline — go straight to pending_review
+    finalStatus = 'pending_review';
+    await db
+      .update(schema.observations)
+      .set({ status: 'pending_review', updatedAt: new Date() })
+      .where(eq(schema.observations.id, observation.id));
+  } else {
+    // Queue for processing (moves to pending_ai)
+    finalStatus = 'pending_ai';
+    await addProcessingJob(observation.id);
+    await db
+      .update(schema.observations)
+      .set({ status: 'pending_ai', updatedAt: new Date() })
+      .where(eq(schema.observations.id, observation.id));
+  }
 
   // 7. Check for active bounties and auto-create claim
   let bountyClaim: { bountyId: string; bountyTitle: string; amountCents: number } | null = null;
@@ -166,7 +177,7 @@ export async function createObservation(input: CreateObservationInput) {
     .limit(1);
 
   return {
-    observation: { ...observation, status: 'pending_ai' as const },
+    observation: { ...observation, status: finalStatus },
     tree: tree[0],
     isNewTree,
     bountyClaim,
@@ -193,9 +204,25 @@ export async function getObservationById(id: string) {
 export async function updateObservationAIResult(
   id: string,
   aiResult: {
-    species: { common: string; scientific: string; confidence: number } | null;
-    health: { status: string; confidence: number; issues: string[] } | null;
-    measurements: { dbhCm: number; heightM: number } | null;
+    species: { common: string; scientific: string; genus?: string; confidence: number } | null;
+    health: {
+      conditionStructural?: string;
+      conditionLeaf?: string;
+      status?: string;
+      confidence: number;
+      observations?: string[];
+      notes?: string[];
+      issues?: string[];
+    } | null;
+    measurements: {
+      dbhCm: number;
+      dbhIn?: number;
+      heightM: number;
+      heightFt?: number;
+      crownWidthM?: number | null;
+      crownWidthFt?: number | null;
+      numStems?: number;
+    } | null;
     heightEstimateM?: number | null;
     canopySpreadM?: number | null;
     crownDieback?: boolean | null;
@@ -256,6 +283,7 @@ export async function updateObservationAIResult(
       ) {
         updates.speciesCommon = aiResult.species.common;
         updates.speciesScientific = aiResult.species.scientific;
+        if (aiResult.species.genus) updates.speciesGenus = aiResult.species.genus;
         updates.speciesConfidence = aiResult.species.confidence;
       }
 
@@ -264,13 +292,21 @@ export async function updateObservationAIResult(
         (tree[0].healthConfidence === null ||
           aiResult.health.confidence > tree[0].healthConfidence)
       ) {
-        updates.healthStatus = aiResult.health.status;
+        if (aiResult.health.conditionStructural) updates.conditionStructural = aiResult.health.conditionStructural;
+        if (aiResult.health.conditionLeaf) updates.conditionLeaf = aiResult.health.conditionLeaf;
+        if (aiResult.health.status) updates.healthStatus = aiResult.health.status;
         updates.healthConfidence = aiResult.health.confidence;
+        if (aiResult.health.observations) updates.observations = JSON.stringify(aiResult.health.observations);
       }
 
       if (aiResult.measurements) {
         updates.estimatedDbhCm = aiResult.measurements.dbhCm;
+        if (aiResult.measurements.dbhIn) updates.estimatedDbhIn = aiResult.measurements.dbhIn;
         updates.estimatedHeightM = aiResult.measurements.heightM;
+        if (aiResult.measurements.heightFt) updates.estimatedHeightFt = aiResult.measurements.heightFt;
+        if (aiResult.measurements.crownWidthM !== undefined) updates.estimatedCrownWidthM = aiResult.measurements.crownWidthM;
+        if (aiResult.measurements.crownWidthFt !== undefined) updates.estimatedCrownWidthFt = aiResult.measurements.crownWidthFt;
+        if (aiResult.measurements.numStems) updates.numStems = aiResult.measurements.numStems;
       }
 
       // Level 1 AI-estimated fields on tree

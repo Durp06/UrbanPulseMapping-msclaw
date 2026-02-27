@@ -154,6 +154,7 @@ export const createObservationSchema = z.object({
   photos: z.array(createObservationPhotoSchema).length(3),
   notes: z.string().optional(),
   inspection: inspectionDataSchema.optional(),
+  skipAi: z.boolean().optional(),
 });
 
 export const presignedUrlRequestSchema = z.object({
@@ -162,22 +163,53 @@ export const presignedUrlRequestSchema = z.object({
   photoType: photoTypeSchema,
 });
 
+// Structured observation categories matching municipal inventory standards
+export const treeObservationSchema = z.enum([
+  'deadwood',
+  'decay',
+  'cavities',
+  'cracks',
+  'root_damage',
+  'lean',
+  'codominant_stems',
+  'included_bark',
+  'canopy_dieback',
+  'chlorosis',
+  'pest_damage',
+  'fungal_fruiting_bodies',
+  'girdling_roots',
+  'mechanical_damage',
+  'poor_pruning',
+  'soil_compaction',
+  'limited_growing_space',
+]);
+
 // AI result schema (internal endpoint)
 export const aiSpeciesResultSchema = z.object({
   common: z.string(),
   scientific: z.string(),
+  genus: z.string().optional(),
   confidence: z.number().min(0).max(1),
 });
 
 export const aiHealthResultSchema = z.object({
-  status: z.string(),
+  conditionStructural: z.string().optional(),
+  conditionLeaf: z.string().optional(),
+  status: z.string().optional(),
   confidence: z.number().min(0).max(1),
-  issues: z.array(z.string()),
+  observations: z.array(treeObservationSchema).optional(),
+  notes: z.array(z.string()).optional(),
+  issues: z.array(z.string()).optional(),
 });
 
 export const aiMeasurementResultSchema = z.object({
   dbhCm: z.number().positive(),
+  dbhIn: z.number().positive().optional(),
   heightM: z.number().positive(),
+  heightFt: z.number().positive().optional(),
+  crownWidthM: z.number().positive().nullable().optional(),
+  crownWidthFt: z.number().positive().nullable().optional(),
+  numStems: z.number().int().min(1).optional(),
 });
 
 export const aiResultSchema = z.object({
