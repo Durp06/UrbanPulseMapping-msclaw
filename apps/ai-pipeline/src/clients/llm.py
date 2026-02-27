@@ -6,12 +6,14 @@ Provider abstraction allows swapping between Claude, GPT-4o, and Gemini via conf
 
 import asyncio
 import base64
+import io
 import json
 import logging
 from dataclasses import dataclass
 from typing import Literal
 
 import httpx
+from PIL import Image
 
 from src.config import settings
 
@@ -33,8 +35,31 @@ class LLMResponse:
     usage: dict | None = None
 
 
+MAX_IMAGE_DIMENSION = 1568  # Anthropic recommended max
+
+
+def _resize_image(image_bytes: bytes, max_dim: int = MAX_IMAGE_DIMENSION) -> bytes:
+    """Resize image if either dimension exceeds max_dim, preserving aspect ratio.
+
+    Returns JPEG bytes (re-encoded if resized, original if already small enough).
+    """
+    img = Image.open(io.BytesIO(image_bytes))
+    w, h = img.size
+    if w <= max_dim and h <= max_dim:
+        return image_bytes
+    scale = min(max_dim / w, max_dim / h)
+    new_w, new_h = int(w * scale), int(h * scale)
+    img = img.resize((new_w, new_h), Image.LANCZOS)
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    logger.debug("Resized image from %dx%d to %dx%d (%d→%d bytes)", w, h, new_w, new_h, len(image_bytes), buf.tell())
+    return buf.getvalue()
+
+
 def _encode_image(image_bytes: bytes, mime_type: str = "image/jpeg") -> str:
-    """Base64-encode image bytes.
+    """Resize (if needed) and base64-encode image bytes.
 
     Args:
         image_bytes: Raw image bytes.
@@ -43,7 +68,8 @@ def _encode_image(image_bytes: bytes, mime_type: str = "image/jpeg") -> str:
     Returns:
         Base64-encoded string.
     """
-    return base64.b64encode(image_bytes).decode("utf-8")
+    resized = _resize_image(image_bytes)
+    return base64.b64encode(resized).decode("utf-8")
 
 
 def _build_anthropic_payload(
