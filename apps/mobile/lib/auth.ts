@@ -61,8 +61,8 @@ export async function signInWithGoogle() {
 
 export async function signOut() {
   _mockUser = null;
+  // Clear auth state — don't notify listener to avoid re-render race
   useAuthStore.getState().clearAuth();
-  notifyAuthChange();
 }
 
 export function onAuthChange(callback: (user: FirebaseUser | null) => void): () => void {

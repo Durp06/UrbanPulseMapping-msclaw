@@ -38,8 +38,15 @@ export default function ProfileScreen() {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          await signOut();
-          router.replace('/(auth)/login');
+          try {
+            await signOut();
+          } catch (e) {
+            console.warn('Sign out error:', e);
+          }
+          // Delay navigation to let state settle
+          setTimeout(() => {
+            router.replace('/(auth)/login');
+          }, 100);
         },
       },
     ]);

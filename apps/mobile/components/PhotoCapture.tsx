@@ -112,30 +112,48 @@ export function PhotoCapture({
     );
   }
 
-  // Camera permission not granted
+  // Camera permission not granted — show sample/pick options prominently
   if (!permission?.granted) {
     return (
       <View className="flex-1 bg-black items-center justify-center px-8">
-        <Text className="text-white text-lg text-center mb-6">
-          Camera access is needed to photograph trees.
+        <Text className="text-white text-2xl font-bold mb-2">
+          📷 {overlayType === 'bark' ? 'Bark Close-up' : 'Full Tree Photo'}
         </Text>
+        <Text className="text-gray-400 text-center mb-8">
+          {instruction}
+        </Text>
+
         <Pressable
-          className="py-3 px-8 rounded-xl"
+          className="w-full py-4 rounded-xl mb-4 items-center"
           style={{ backgroundColor: colors.primary }}
-          onPress={requestPermission}
+          onPress={handleUseSample}
         >
           <Text className="text-white font-semibold text-lg">
-            Grant Camera Access
+            📸 Use Sample Tree Photo
           </Text>
         </Pressable>
-        {__DEV__ && (
-          <Pressable
-            className="mt-4 py-3 px-8 rounded-xl bg-gray-700"
-            onPress={handleUseSample}
-          >
-            <Text className="text-white font-semibold">Use Sample Photo</Text>
-          </Pressable>
-        )}
+
+        <Pressable
+          className="w-full py-4 rounded-xl mb-4 items-center bg-gray-700"
+          onPress={handlePickImage}
+        >
+          <Text className="text-white font-semibold text-lg">
+            🖼️ Pick from Photo Library
+          </Text>
+        </Pressable>
+
+        <Pressable
+          className="w-full py-4 rounded-xl mb-4 items-center bg-gray-800"
+          onPress={requestPermission}
+        >
+          <Text className="text-gray-300 font-semibold text-base">
+            Enable Camera Instead
+          </Text>
+        </Pressable>
+
+        <Pressable onPress={onCancel}>
+          <Text className="text-gray-500 text-base mt-4">Cancel</Text>
+        </Pressable>
       </View>
     );
   }
