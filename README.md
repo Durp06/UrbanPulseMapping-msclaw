@@ -1,9 +1,10 @@
 # 🌳 Urban Pulse Mapping
 
-Crowdsourced urban tree inventory. Citizens photograph trees, the app geotags and uploads photos, and the data feeds into a municipal-grade tree database. Cities buy this data to track canopy coverage, verify tree plantings, and meet climate goals.
+Crowdsourced urban tree inventory platform. Citizens photograph trees, the app geotags and uploads photos, an AI pipeline identifies species and assesses health, and the data feeds into a municipal-grade tree database. Cities buy this data to track canopy coverage, verify tree plantings, and meet climate goals.
 
 ![React Native](https://img.shields.io/badge/React_Native-Expo_SDK_52-blue?logo=expo)
 ![Fastify](https://img.shields.io/badge/API-Fastify_v4-black?logo=fastify)
+![Python](https://img.shields.io/badge/AI_Pipeline-Python_3.11+-3776AB?logo=python)
 ![PostGIS](https://img.shields.io/badge/DB-PostgreSQL_16_+_PostGIS-336791?logo=postgresql)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.5+-3178C6?logo=typescript)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -12,12 +13,38 @@ Crowdsourced urban tree inventory. Citizens photograph trees, the app geotags an
 
 ## How It Works
 
-1. **User opens the app** → sees a map centered on their location with color-coded tree pins
-2. **Taps "Scan Tree"** → guided 3-photo capture flow (two angles + bark close-up)
-3. **Photos upload direct to R2** via presigned URLs, observation record created
-4. **Backend deduplicates** — if a tree exists within 5m, the observation links to it
-5. **Cooldown system** — after 3 unique observers, a tree enters 90-day cooldown
-6. **Contract zones** — map can be filtered by zip code or street corridor for municipal contracts
+```
+📱 Mobile App          🖥️ API Server          🤖 AI Pipeline
+─────────────          ──────────────          ──────────────
+User opens app    →    Map tiles + tree data
+                       served via PostGIS
+                       spatial queries
+
+Scans a tree      →    3 photos upload to
+(2 angles + bark)      MinIO/R2 via presigned
+                       URLs
+
+Submits form      →    Observation saved,       Job queued via
+(GPS + inspection)     tree dedup (5m radius),  BullMQ/Redis
+                       status: pending_ai    →  ─────────────→
+                                                Downloads photos,
+                                                Pl@ntNet + Claude
+                                                species ID, health,
+                                                measurements, site
+                                             ←  POSTs results back
+
+                       Tree record updated,
+                       status: pending_review
+```
+
+**Key features:**
+- 🗺️ Interactive map with color-coded tree pins and contract zone overlays
+- 📷 Guided 3-photo capture with overlay guides
+- 🤖 Dual AI species ID: Pl@ntNet botanical API + Claude vision (consensus scoring)
+- 🏥 Automated health assessment, physical measurements, and site analysis
+- 📊 Level 1 municipal tree inspection fields (ArcGIS-compatible CSV export)
+- 💰 Bounty system for incentivized mapping campaigns
+- 🔒 5m deduplication + 90-day cooldown to prevent over-surveying
 
 ---
 
@@ -26,122 +53,154 @@ Crowdsourced urban tree inventory. Citizens photograph trees, the app geotags an
 ```
 urban-pulse/
 ├── apps/
-│   ├── api/          # Fastify v4 + TypeScript backend
-│   └── mobile/       # Expo SDK 52+ React Native app
+│   ├── api/             # Fastify v4 + TypeScript backend
+│   ├── mobile/          # Expo SDK 52+ React Native app
+│   └── ai-pipeline/     # Python AI analysis microservice
 ├── packages/
 │   ├── shared-types/    # TypeScript interfaces
 │   └── shared-schemas/  # Zod validation schemas
-├── scripts/          # Setup, seed, and test scripts
+├── scripts/             # Setup, seed, and test scripts
 └── docker-compose.yml
 ```
 
 **Monorepo** managed with [Turborepo](https://turbo.build/) + [pnpm](https://pnpm.io/).
 
-### Backend Stack
-| Layer | Tech |
-|-------|------|
-| Framework | Fastify v4 |
-| Language | TypeScript 5+ |
-| Database | PostgreSQL 16 + PostGIS |
-| ORM | Drizzle ORM + drizzle-kit |
-| Object Storage | Cloudflare R2 (S3-compatible) / MinIO locally |
-| Auth | Firebase Admin SDK |
-| Job Queue | BullMQ + Redis |
-| Validation | Zod (shared schemas) |
-| Caching | Redis (5-min TTL on zone GeoJSON) |
+### Tech Stack
 
-### Mobile Stack
-| Layer | Tech |
-|-------|------|
-| Framework | React Native + Expo SDK 52+ |
-| Routing | Expo Router (file-based) |
-| Styling | NativeWind v4 (Tailwind CSS) |
-| Data Fetching | TanStack Query v5 |
-| State | Zustand |
-| Maps | react-native-maps (Apple Maps on iOS) |
-| Camera | Expo Camera |
-| Location | Expo Location |
-| Offline | Expo FileSystem queue |
-
----
-
-## Prerequisites
-
-- **Node.js 20+** (recommend [nvm](https://github.com/nvm-sh/nvm))
-- **pnpm 9+** — `npm install -g pnpm`
-- **Docker** (via [OrbStack](https://orbstack.dev/) recommended, or Docker Desktop)
-- **Xcode 16+** with iOS 18 Simulator (for mobile dev)
-- macOS (mobile builds are iOS-only for now)
+| Component | Technology |
+|-----------|-----------|
+| **Mobile** | React Native + Expo SDK 52, Expo Router, NativeWind v4, TanStack Query v5, Zustand, react-native-maps |
+| **API** | Fastify v4, TypeScript, Drizzle ORM, PostgreSQL 16 + PostGIS, BullMQ + Redis, Zod |
+| **AI Pipeline** | Python 3.11+, Pl@ntNet API, Anthropic Claude (vision), asyncio + BullMQ, MinIO/S3 |
+| **Storage** | Cloudflare R2 / MinIO (S3-compatible), presigned URL uploads |
+| **Auth** | Firebase Admin SDK (dev: mock auth, any token works) |
+| **Monorepo** | Turborepo + pnpm |
 
 ---
 
 ## Quick Start
 
+### Prerequisites
+
+- **Node.js 20+** and **pnpm 9+** (`npm install -g pnpm`)
+- **Python 3.11+** (for AI pipeline)
+- **Docker** via [Colima](https://github.com/abiosoft/colima) or [OrbStack](https://orbstack.dev/)
+- **Xcode 16+** with iOS Simulator (for mobile dev)
+- macOS required (iOS builds)
+
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/cristpierce/UrbanPulseMapping.git
-cd UrbanPulseMapping
+git clone https://github.com/Durp06/UrbanPulseMapping-msclaw.git
+cd UrbanPulseMapping-msclaw
 pnpm install
 ```
 
 ### 2. Start Infrastructure
 
 ```bash
-docker compose up -d
+docker compose up -d   # PostgreSQL + PostGIS, MinIO, Redis
 ```
 
-This starts:
-- **PostgreSQL 16 + PostGIS** on port 5432
-- **MinIO** (S3-compatible storage) on ports 9000/9001
-- **Redis** on port 6379
+Or with Colima:
+```bash
+colima start
+export DOCKER_HOST=unix://$HOME/.colima/docker.sock
+docker compose up -d
+```
 
 ### 3. Configure Environment
 
 ```bash
-cp .env.example .env
-cp .env.example apps/api/.env
+# API
+cp apps/api/.env.example apps/api/.env
+
+# AI Pipeline
+cp apps/ai-pipeline/.env.example apps/ai-pipeline/.env
+# Fill in: ANTHROPIC_API_KEY, PLANTNET_API_KEY
 ```
 
-The defaults work for local development. For Firebase auth, see [Auth Setup](#authentication) below.
-
-### 4. Run Migrations & Seed
+### 4. Database Setup
 
 ```bash
-# Run database migrations
 pnpm --filter @urban-pulse/api run db:migrate
-
-# Seed sample trees around Austin, TX
 pnpm --filter @urban-pulse/api run db:seed
-
-# Seed contract zones (zip codes + street corridors)
-cd apps/api && npx tsx ../../scripts/seed-zones.ts
 ```
 
-### 5. Start Development
+### 5. Run Everything
 
 ```bash
-# Start everything (API + mobile)
-pnpm turbo run dev
+# API server (port 3000)
+pnpm --filter @urban-pulse/api run dev
 
-# Or individually:
-pnpm --filter @urban-pulse/api run dev       # API on :3000
-pnpm --filter @urban-pulse/mobile run dev    # Expo dev server
+# AI pipeline (consumes from Redis queue)
+cd apps/ai-pipeline && source .venv/bin/activate && python -m src.main
+
+# Mobile (Expo dev server)
+cd apps/mobile && npx expo run:ios
 ```
 
-### 6. iOS Simulator
+Set simulator location to Austin: **Simulator → Features → Location → Custom → `30.2672, -97.7431`**
 
-The first time, you need to build the native dev client:
+---
+
+## AI Pipeline
+
+The AI pipeline is a standalone Python microservice that processes tree observations asynchronously.
+
+### Pipeline Flow
+
+1. **Job arrives** via BullMQ Redis queue (`ai-process-observation`)
+2. **Photos downloaded** from MinIO/S3 (matched by storage key)
+3. **Quality filter** — blur detection, brightness, dimensions (rejects poor photos)
+4. **Four parallel analyzers run:**
+   - **Species** — Pl@ntNet botanical API + Claude vision consensus
+   - **Health** — structural condition, leaf condition, confidence score
+   - **Measurements** — DBH (cm), height (m), crown width (m)
+   - **Site** — condition rating, location type, risk assessment
+5. **Results POST** back to API via internal endpoint
+6. **Observation status** transitions `pending_ai → pending_review`
+
+### Species Identification Accuracy
+
+Tested against 12 common Austin, TX street tree species (47 real photos from iNaturalist):
+
+| Metric | Result |
+|--------|--------|
+| **Genus accuracy** | **100%** (12/12 species) |
+| **Best species-level** | Live Oak 93%, Bald Cypress 91%, Crepe Myrtle 84% |
+| **Tested species** | Live Oak, Cedar Elm, Pecan, Bald Cypress, Crepe Myrtle, Texas Red Oak, Monterrey Oak, Ashe Juniper, Texas Ash |
+
+### Configuration
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ANTHROPIC_API_KEY` | Yes | Claude API key for vision analysis |
+| `PLANTNET_API_KEY` | Yes | Pl@ntNet species ID (free at [my.plantnet.org](https://my.plantnet.org)) |
+| `GOOGLE_API_KEY` | No | Gemini as alternative LLM provider |
+| `LLM_PROVIDER` | No | `anthropic` (default), `google`, or `openai` |
+| `LLM_MODEL` | No | Model name (default: `claude-sonnet-4-5-20250929`) |
+| `REDIS_URL` | Yes | Redis connection for BullMQ |
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `S3_ENDPOINT` | Yes | MinIO/R2 endpoint |
+| `API_BASE_URL` | Yes | API server URL for result callback |
+| `INTERNAL_API_KEY` | Yes | Shared secret for API auth |
+
+### Running Tests
 
 ```bash
-cd apps/mobile
-npx expo prebuild --platform ios --clean
-npx expo run:ios
+cd apps/ai-pipeline
+source .venv/bin/activate
+
+# Quality filter tests only (no API keys needed)
+pytest tests/test_e2e_real_photos.py::TestQualityFilter -v
+
+# Pl@ntNet tests (needs PLANTNET_API_KEY)
+pytest tests/test_e2e_real_photos.py::TestPlantNet -v
+
+# Full suite (needs all API keys)
+pytest tests/test_e2e_real_photos.py -v -s
 ```
-
-After the first build, `pnpm turbo run dev` will connect to the existing dev build automatically.
-
-**Set simulator location** to Austin: Simulator → Features → Location → Custom Location → `30.2672, -97.7431`
 
 ---
 
@@ -149,110 +208,79 @@ After the first build, `pnpm turbo run dev` will connect to the existing dev bui
 
 Base URL: `http://localhost:3000`
 
-All endpoints except `/health` require `Authorization: Bearer <token>` (in dev mode with no Firebase config, any token works with a mock user).
+All endpoints except `/health` require `Authorization: Bearer <token>`.
 
 ### Core Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/health` | Health check (no auth) |
-| `GET` | `/api/trees?lat=&lng=&radius=` | Trees near a point (PostGIS spatial query) |
-| `GET` | `/api/trees/:id` | Single tree with observation history |
-| `POST` | `/api/observations` | Submit a new tree observation |
-| `POST` | `/api/uploads/presigned-url` | Get presigned URL for direct R2 upload |
-| `GET` | `/api/users/me` | Current user profile |
-| `GET` | `/api/users/me/stats` | User stats (scans, verified, streaks) |
+| `GET` | `/health` | Health check |
+| `GET` | `/api/trees?lat=&lng=&radius=` | Spatial tree query |
+| `GET` | `/api/trees/:id` | Tree detail with observations |
+| `POST` | `/api/observations` | Submit observation |
+| `POST` | `/api/uploads/presigned-url` | Get presigned upload URL |
+| `GET` | `/api/users/me` | User profile |
+| `GET` | `/api/users/me/stats` | User stats |
 
-### Zone Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/zones` | All zones as GeoJSON FeatureCollection |
-| `GET` | `/api/zones?status=active` | Filter by zone status |
-| `GET` | `/api/zones?bounds=sw_lat,sw_lng,ne_lat,ne_lng` | Viewport filter |
-| `GET` | `/api/zones/summary` | Lightweight zone list (no geometry) |
-| `GET` | `/api/zones/:id` | Single zone detail |
-| `GET` | `/api/zones/:id/trees?page=1&limit=20` | Paginated trees in a zone |
-
-### Bounty Endpoints
+### Zone & Bounty Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/bounties` | List active bounties (public) |
-| `GET` | `/api/bounties/:id` | Bounty detail |
-| `GET` | `/api/bounties/:id/leaderboard` | Top earners for a bounty |
-| `GET` | `/api/bounties/mine` | Bounties created by current user (developer only) |
-| `POST` | `/api/bounties` | Create a bounty (developer only) |
-| `PATCH` | `/api/bounties/:id` | Update bounty — title, description, status transitions (developer only) |
+| `GET` | `/api/zones` | All zones (GeoJSON) |
+| `GET` | `/api/zones/summary` | Zone list (no geometry) |
+| `GET` | `/api/zones/:id/trees` | Trees in zone (paginated) |
+| `GET` | `/api/bounties` | Active bounties |
+| `POST` | `/api/bounties` | Create bounty (developer role) |
+| `GET` | `/api/bounties/:id/leaderboard` | Bounty leaderboard |
 
-### User Management Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `PATCH` | `/api/users/me` | Update user profile (role switching: `user` ↔ `developer`) |
-
-### Export Endpoints
+### Export & Internal
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/export/trees?format=csv` | ArcGIS-compatible CSV with all L1 inspection fields |
-| `GET` | `/api/export/trees?format=geojson` | GeoJSON FeatureCollection export |
+| `GET` | `/api/export/trees?format=csv` | ArcGIS-compatible CSV export |
+| `GET` | `/api/export/trees?format=geojson` | GeoJSON export |
+| `POST` | `/api/internal/observations/:id/ai-result` | AI result callback (X-Internal-API-Key) |
 
-### Internal Endpoints
+---
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/internal/observations/:id/ai-result` | AI processing results (X-Internal-API-Key auth) |
+## Observation Lifecycle
 
-### Example Requests
-
-```bash
-# Health check
-curl http://localhost:3000/health
-
-# Get trees near downtown Austin
-curl "http://localhost:3000/api/trees?lat=30.2672&lng=-97.7431&radius=1000" \
-  -H "Authorization: Bearer dev-token"
-
-# Get all active contract zones as GeoJSON
-curl "http://localhost:3000/api/zones?status=active" \
-  -H "Authorization: Bearer dev-token"
-
-# Get zone summary (lightweight, no geometry)
-curl http://localhost:3000/api/zones/summary \
-  -H "Authorization: Bearer dev-token"
+```
+submitted → pending_ai → pending_review → verified
+                │                             │
+                │  AI Pipeline processes       │  Community/expert
+                │  species, health, site,      │  review
+                │  measurements                │
+                └─────────────────────────────►└──► rejected
 ```
 
 ---
 
-## Database Schema
+## Database
 
 ### Core Tables
 
-- **`users`** — Firebase-linked user accounts
-- **`trees`** — Deduplicated tree records with PostGIS `geography(Point, 4326)` column
-- **`observations`** — Individual tree observations (photos + GPS + status)
-- **`photos`** — Photo metadata (storage keys reference R2 objects)
-
-### Contract Zone Tables
-
-- **`contracts`** — Municipal contracts (name, dates, budget, status)
-- **`contract_zones`** — Geographic zones tied to contracts:
-  - **Zip code zones** — `geometry` column stores `MultiPolygon` boundaries
-  - **Street corridors** — `centerline` (LineString) + `buffer_meters` → polygon generated via `ST_Buffer`
+| Table | Purpose |
+|-------|---------|
+| `users` | Firebase-linked accounts |
+| `trees` | Deduplicated tree records with PostGIS geography |
+| `observations` | Individual submissions (photos + GPS + inspection) |
+| `photos` | Photo metadata (storage keys → R2/MinIO objects) |
+| `contracts` | Municipal contracts |
+| `contract_zones` | Geographic zones (zip polygons + street corridor buffers) |
+| `bounties` | Mapping incentive campaigns |
+| `bounty_claims` | Per-tree bounty claim records |
 
 ### Key Spatial Operations
 
 ```sql
--- Tree deduplication: find trees within 5m
-SELECT * FROM trees
-WHERE ST_DWithin(location, ST_MakePoint(lng, lat)::geography, 5);
+-- Tree deduplication (5m radius)
+SELECT * FROM trees WHERE ST_DWithin(location, ST_MakePoint(lng, lat)::geography, 5);
 
--- Trees within a zone
-SELECT * FROM trees
-WHERE ST_Within(location::geometry, zone_geometry);
+-- Trees within a contract zone
+SELECT * FROM trees WHERE ST_Within(location::geometry, zone_geometry);
 
--- Zones intersecting a viewport
+-- Zones intersecting map viewport
 SELECT * FROM contract_zones
 WHERE ST_Intersects(geometry, ST_MakeEnvelope(sw_lng, sw_lat, ne_lng, ne_lat, 4326));
 ```
@@ -260,304 +288,123 @@ WHERE ST_Intersects(geometry, ST_MakeEnvelope(sw_lng, sw_lat, ne_lng, ne_lat, 43
 ### Migrations
 
 ```bash
-# Generate a new migration after schema changes
-pnpm --filter @urban-pulse/api run db:generate
-
-# Apply migrations
-pnpm --filter @urban-pulse/api run db:migrate
-
-# Open Drizzle Studio (visual DB browser)
-pnpm --filter @urban-pulse/api run db:studio
+pnpm --filter @urban-pulse/api run db:generate   # Generate migration from schema changes
+pnpm --filter @urban-pulse/api run db:migrate    # Apply migrations
+pnpm --filter @urban-pulse/api run db:studio     # Visual DB browser
 ```
-
----
-
-## Contract Zones System
-
-The map supports municipal contract scoping — cities define geographic zones where tree data is needed.
-
-### Zone Types
-
-**Zip Code Zones** — polygon boundaries for USPS zip codes. Stored as `MultiPolygon` in EPSG:4326.
-
-**Street Corridor Zones** — defined by a centerline + buffer distance. The centerline is a `LineString` (e.g., Lamar Blvd from US-183 to Barton Springs), buffered by `buffer_meters` (default 50m) on each side.
-
-### Zone Statuses
-
-| Status | Map Color | Description |
-|--------|-----------|-------------|
-| `active` | Green (15% fill) | Currently accepting observations |
-| `completed` | Blue (10% fill) | Target met, data collection done |
-| `upcoming` | Yellow (10% fill) | Scheduled but not yet active |
-| `paused` | Gray (10% fill) | Temporarily suspended |
-
-### How Zone Assignment Works
-
-1. User submits a tree observation with GPS coordinates
-2. Backend runs `ST_Within(point, zone_geometry)` against active zones
-3. If match found → `contract_zone_id` set on the tree, `trees_mapped_count` incremented
-4. User sees "This tree counts toward [Contract Name]!" celebration
-5. Trees outside zones are still accepted (all data is valuable)
-
-### Seed Data
-
-The project includes seed data for Austin, TX:
-- **5 zip code zones**: 78701 (downtown), 78702 (east), 78704 (south/Zilker), 78741, 78745
-- **3 street corridors**: South Congress, Lamar Blvd, E Cesar Chavez
-- ~900 randomly generated tree points across all zones
-
----
-
-## Mobile App Screens
-
-### Map Screen (Home)
-- Full-screen Apple Maps with tree pins (green=verified, yellow=pending, gray=cooldown)
-- **Zone toggle**: All Trees / By Zip Code / By Street / Active Contracts
-- **Zone overlays**: semi-transparent polygon fills with progress labels
-- **Zone chips**: horizontal scrollable selector to filter specific zones
-- **Active zone banner**: appears when user GPS is inside an active zone
-- **Bottom sheet**: tap a zone to see details, progress bar, and "Start Mapping Here"
-
-### Scan Flow (Modal Stack)
-1. **Proximity check** — queries nearby trees, handles cooldown/dedup
-2. **Angle 1** — full tree photo with overlay guide
-3. **Angle 2** — rotated ~90° from first angle
-4. **Bark close-up** — chest-height bark detail
-5. **Review** — confirm photos + GPS + optional notes
-6. **Success** — stats update + zone celebration if applicable
-
-### Dashboard
-- Stats grid: trees scanned, verified, pending, on cooldown
-- Recent activity list
-- **My Zones** section: zones contributed to with progress bars
-
-### Dev Mode
-- **Mock auth**: no Firebase project needed — any Bearer token creates a dev user
-- **Sample photos**: when `__DEV__` is true, camera screens offer "Use Sample Photo"
-- **Simulated location**: set via Simulator → Features → Location
-
----
-
-## Authentication
-
-### Development (default)
-
-No setup needed. When `FIREBASE_PROJECT_ID` is not set, the API accepts any Bearer token and uses a mock user. The mobile app sends a hardcoded dev token.
-
-### Production
-
-1. Create a [Firebase project](https://console.firebase.google.com/)
-2. Enable Email/Password, Apple Sign-In, and Google Sign-In
-3. Download the service account key
-4. Set environment variables:
-
-```bash
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_CLIENT_EMAIL=your-service-account@your-project.iam.gserviceaccount.com
-FIREBASE_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----\n"
-```
-
-5. Update `apps/mobile/.env` with your Firebase web config:
-
-```bash
-EXPO_PUBLIC_FIREBASE_API_KEY=your-api-key
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
-```
-
----
-
-## Photo Upload Flow
-
-Photos **never** go through the API server — they upload directly to R2/MinIO:
-
-```
-Mobile App                    API                     R2/MinIO
-    │                          │                         │
-    ├─ POST /uploads/presigned-url ──►                   │
-    │◄── { uploadUrl, storageKey } ──┤                   │
-    │                          │                         │
-    ├──── PUT photo bytes ──────────────────────────────►│
-    │                          │                         │
-    ├─ POST /observations ────►│                         │
-    │  (with storageKeys)      ├── validate + dedup ──►  │
-    │◄── { observation, tree } ┤                         │
-```
-
----
-
-## Observation Lifecycle
-
-```
-pending_upload → pending_ai → pending_review → verified
-                     │                              │
-                     │ (external AI system)          │ (community/expert)
-                     └──────────────────────────────►│
-                                                     └──► rejected
-```
-
-The `pending_ai → pending_review` transition is handled by an **external AI system** (not built in this repo). The API exposes `POST /api/internal/observations/:id/ai-result` for the AI to push results.
 
 ---
 
 ## Project Structure
 
-```
-apps/api/src/
-├── index.ts              # Server entry point
-├── app.ts                # Fastify app factory
-├── routes/
-│   ├── auth.ts           # POST /auth/verify-token
-│   ├── health.ts         # GET /health
-│   ├── observations.ts   # Observation CRUD
-│   ├── trees.ts          # Tree queries (spatial)
-│   ├── uploads.ts        # Presigned URL generation
-│   ├── users.ts          # User profile + stats
-│   └── zones.ts          # Contract zone GeoJSON endpoints
-├── services/
-│   ├── cooldown.service.ts   # 90-day cooldown logic
-│   ├── dedup.service.ts      # 5m tree deduplication
-│   ├── observation.service.ts
-│   ├── tree.service.ts
-│   ├── upload.service.ts
-│   ├── user.service.ts
-│   └── zone.service.ts      # Spatial zone queries + caching
-├── middleware/
-│   └── auth.ts           # Firebase token verification
-├── db/
-│   ├── schema.ts         # Drizzle table definitions
-│   ├── index.ts          # DB client
-│   └── migrate.ts        # Migration runner
-├── jobs/
-│   ├── queue.ts          # BullMQ queue setup
-│   ├── worker.ts         # Job processor
-│   └── types.ts          # Job type definitions
-└── utils/
-    ├── geo.ts            # PostGIS helpers
-    ├── s3.ts             # R2/S3 client
-    └── errors.ts         # Custom error classes
+<details>
+<summary><strong>apps/api/src/</strong> — Fastify API (29 files)</summary>
 
-apps/mobile/
+```
+├── index.ts              # Server entry
+├── app.ts                # Fastify factory
+├── routes/               # HTTP endpoints
+│   ├── observations.ts   # Observation CRUD + internal AI result
+│   ├── trees.ts          # Spatial tree queries
+│   ├── zones.ts          # Contract zone GeoJSON
+│   ├── bounties.ts       # Bounty CRUD + leaderboard
+│   ├── uploads.ts        # Presigned URL generation
+│   └── users.ts          # Profile + stats
+├── services/             # Business logic
+│   ├── dedup.service.ts  # 5m tree deduplication
+│   ├── cooldown.service.ts
+│   └── zone.service.ts   # Spatial queries + Redis cache
+├── db/
+│   └── schema.ts         # Drizzle table definitions
+├── jobs/
+│   ├── queue.ts          # BullMQ setup
+│   └── worker.ts         # Job processor
+└── middleware/
+    └── auth.ts           # Firebase token verification
+```
+</details>
+
+<details>
+<summary><strong>apps/mobile/</strong> — Expo React Native (53 files)</summary>
+
+```
 ├── app/                  # Expo Router file-based routes
-│   ├── _layout.tsx       # Root layout + auth guard
 │   ├── index.tsx         # Map screen (home)
 │   ├── scan/             # Guided photo capture flow
-│   ├── dashboard/        # User stats + My Zones
+│   ├── dashboard/        # User stats + zones
 │   └── (auth)/           # Login + register
 ├── components/
-│   ├── TreeMap.tsx        # Main map with markers
-│   ├── TreePin.tsx        # Custom map marker
-│   ├── ZoneOverlay.tsx    # Polygon rendering by status
-│   ├── ZoneToggle.tsx     # View mode selector
-│   ├── ZoneBottomSheet.tsx # Zone detail sheet
-│   ├── ZoneChipSelector.tsx # Zone filter chips
-│   ├── ActiveZoneBanner.tsx # GPS-aware zone banner
-│   ├── ScanButton.tsx     # Floating action button
+│   ├── TreeMap.tsx        # Map with markers + zone overlays
 │   ├── PhotoCapture.tsx   # Camera with overlay guides
-│   └── ...
+│   ├── ZoneOverlay.tsx    # Contract zone polygons
+│   └── ZoneBottomSheet.tsx
 ├── hooks/
-│   ├── useContractZones.ts # Zone data fetching
-│   ├── useTrees.ts        # Tree data fetching
-│   ├── useLocation.ts     # GPS hook
-│   └── useAuth.ts         # Auth state
-├── lib/
-│   ├── api.ts             # API client
-│   ├── auth.ts            # Firebase setup
-│   ├── store.ts           # Zustand store
-│   └── offline-queue.ts   # Offline submission queue
-└── constants/
-    ├── colors.ts          # Brand color palette
-    └── config.ts          # API URL, map defaults
+│   ├── useContractZones.ts
+│   ├── useTrees.ts
+│   └── useAuth.ts
+└── lib/
+    ├── api.ts             # API client
+    └── offline-queue.ts   # Offline submission queue
 ```
+</details>
+
+<details>
+<summary><strong>apps/ai-pipeline/src/</strong> — Python AI Service (17 files)</summary>
+
+```
+├── main.py          # Entry point
+├── config.py        # Pydantic settings
+├── consumer.py      # BullMQ Redis consumer
+├── pipeline.py      # Orchestration
+├── clients/
+│   ├── plantnet.py  # Pl@ntNet species ID
+│   ├── llm.py       # Claude/GPT-4o/Gemini multimodal
+│   └── storage.py   # MinIO/S3 photo download + DB queries
+├── analyzers/
+│   ├── species.py   # Dual-source consensus (Pl@ntNet + LLM)
+│   ├── health.py    # Structural + leaf condition
+│   ├── measurements.py  # DBH, height, crown width
+│   └── site.py      # Location type, risk, condition
+├── prompts/         # LLM prompt templates
+└── utils/
+    └── quality.py   # Blur detection, brightness, size checks
+```
+</details>
 
 ---
 
-## Scripts
+## Development
+
+### Dev Mode Features
+
+- **Mock auth** — no Firebase needed; any Bearer token creates a dev user
+- **Auto-login** — mobile app auto-signs in when `__DEV__` is true
+- **Sample photos** — camera screens offer "Use Sample Photo" in dev mode
+- **Simulated location** — set via Simulator → Features → Location
+
+### Common Commands
 
 | Command | Description |
 |---------|-------------|
 | `pnpm install` | Install all dependencies |
-| `pnpm turbo run dev` | Start API + mobile dev servers |
-| `pnpm turbo run build` | Build all packages |
-| `pnpm turbo run lint` | Lint all packages |
-| `pnpm --filter @urban-pulse/api run db:migrate` | Run DB migrations |
-| `pnpm --filter @urban-pulse/api run db:seed` | Seed sample trees |
-| `pnpm --filter @urban-pulse/api run db:studio` | Open Drizzle Studio |
-| `bash scripts/test-api.sh` | Smoke test API endpoints |
-| `bash scripts/setup-dev.sh` | Full one-time dev setup |
+| `pnpm turbo run dev` | Start API + mobile |
+| `pnpm --filter @urban-pulse/api run dev` | API only |
+| `pnpm --filter @urban-pulse/api run db:migrate` | Apply migrations |
+| `pnpm --filter @urban-pulse/api run db:seed` | Seed sample data |
+| `cd apps/ai-pipeline && python -m src.main` | Run AI pipeline |
+| `pytest tests/test_e2e_real_photos.py -v` | AI pipeline E2E tests |
 
----
-
-## Troubleshooting
+### Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| `pnpm install` fails | Use Node 20+ (`nvm use 20`) |
 | Postgres won't start | Check port 5432: `lsof -i :5432` |
-| Migrations fail | Ensure PostGIS image: `postgis/postgis:16-3.4-alpine` |
+| API port conflict | Kill old processes: `lsof -ti :3000 \| xargs kill` |
 | Expo build fails | `cd apps/mobile/ios && pod install --repo-update` |
-| Simulator slow | Close Chrome/Docker Desktop, use OrbStack |
-| Map shows wrong location | Simulator → Features → Location → Custom |
-| API calls fail from simulator | Verify `EXPO_PUBLIC_API_URL=http://localhost:3000/api` |
-| Firebase auth fails | In dev mode, omit `FIREBASE_PROJECT_ID` for mock auth |
-| No tree markers on map | Run seed scripts, check API returns data |
-
----
-
-## Level 1 Tree Inspection
-
-The scan flow includes a comprehensive Level 1 inspection form (see `docs/LEVEL1_INSPECTION_SPEC.md`):
-
-**Scan Flow:** Photos (3 angles) → Review → **Inspection Form** → Success
-
-**User-Input Fields:**
-- Condition rating (good/fair/poor/dead)
-- Crown dieback, trunk defects (cavity/crack/lean), risk flag
-- Maintenance needed (prune/remove/none)
-- Location type (street tree/park/median/ROW), site type
-- Overhead utility conflict, sidewalk damage from roots
-- Mulch/soil condition, notes
-
-**AI-Estimated Fields** (populated asynchronously via internal endpoint):
-- Species identification, DBH estimate
-- Height estimate, canopy spread
-- Additional defect detection
-
-**Export:** `GET /api/export/trees?format=csv` produces ArcGIS-compatible output with all L1 fields.
-
----
-
-## Bounty System
-
-Developers can create mapping bounties — monetary incentives for mapping specific zones.
-
-**How it works:**
-1. Switch to Developer Mode in Profile
-2. Create a bounty: set zone, $/tree, total budget, target count
-3. Bounty appears as gold overlay on the map for all users
-4. When a mapper submits a tree in a bounty zone → auto-claim created
-5. Mapper sees "You earned $X.XX!" celebration
-
-**Status transitions:** `draft → active → paused → active → completed`
-
-**Financial fields** (amount, budget, target) are locked once a bounty leaves draft status.
-
----
-
-## What's NOT Built (Yet)
-
-These are scoped for future work:
-
-- ❌ AI species identification / health assessment / measurement estimation
-- ❌ Web dashboard (Next.js)
-- ❌ Push notifications
-- ❌ Social features (leaderboards, teams)
-- ❌ Admin panel
-- ❌ Payment integration
-- ❌ Android support
-- ❌ LiDAR scanning
-
-**Interface contracts are in place** — the AI system can plug in via `POST /api/internal/observations/:id/ai-result` and the observation status pipeline.
+| AI pipeline 400 errors | Images too large — the auto-resize in `llm.py` handles this |
+| MinIO photos not found | Verify storage keys in `photos` table match MinIO paths |
+| Docker socket not found | `export DOCKER_HOST=unix://$HOME/.colima/docker.sock` |
+| Firebase auth fails | Omit `FIREBASE_PROJECT_ID` for dev mode mock auth |
 
 ---
 
@@ -566,16 +413,25 @@ These are scoped for future work:
 1. Fork the repo
 2. Create a feature branch: `git checkout -b feat/my-feature`
 3. Follow existing patterns (Drizzle for DB, Zod for validation, NativeWind for styling)
-4. Ensure `pnpm turbo run build` passes with zero TypeScript errors
+4. `pnpm turbo run build` must pass with zero TypeScript errors
 5. Submit a PR
 
-**Key rules:**
+**Rules:**
 - **pnpm only** — never npm or yarn
-- **Never modify existing migration files** — generate new ones
-- **Never commit `.env` files** — use `.env.example`
-- **Photos upload direct to R2** — never through the API server
-- **NativeWind `className`** — no `StyleSheet.create`
-- **Don't implement AI logic** — stub interfaces only
+- **Never modify existing migration files**
+- **Never commit `.env` files**
+- **Photos upload direct to R2/MinIO** — never through the API server
+
+---
+
+## What's Next
+
+- [ ] Web admin dashboard
+- [ ] Push notifications for bounty zones
+- [ ] Offline mode with local queue sync
+- [ ] Android support
+- [ ] LiDAR canopy scanning
+- [ ] Payment integration for bounties
 
 ---
 
