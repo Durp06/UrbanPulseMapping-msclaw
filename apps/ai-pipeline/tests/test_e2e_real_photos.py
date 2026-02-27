@@ -15,11 +15,20 @@ import pytest
 FIXTURES = Path(__file__).parent / "fixtures" / "tree-photos"
 
 # Test tree configurations: (name, angle1, angle2, bark, expected_genus)
+# Covers Austin's most common urban/street tree species
 TREE_CONFIGS = [
     ("live_oak", "liveoak_angle1.jpg", "liveoak_angle2.jpg", "oak_bark_0.jpg", "Quercus"),
     ("cedar_elm", "cedarelm_0_0.jpg", "cedarelm_0_1.jpg", "oak_bark_1.jpg", "Ulmus"),
     ("pecan", "pecan_0_0.jpg", "pecan_1_0.jpg", "oak_bark_2.jpg", "Carya"),
     ("bald_cypress", "baldcypress_0_0.jpg", "baldcypress_1_0.jpg", "oak_bark_3.jpg", "Taxodium"),
+    ("crepe_myrtle", "crapemyrtle_0.jpg", "crapemyrtle_1.jpg", "oak_bark_4.jpg", "Lagerstroemia"),
+    ("texas_red_oak", "texasredoak_0.jpg", "texasredoak_2.jpg", "oak_bark_0.jpg", "Quercus"),
+    ("monterrey_oak", "monterreyoak_0.jpg", "monterreyoak_1.jpg", "oak_bark_1.jpg", "Quercus"),
+    ("ashe_juniper", "ashejuniper_0.jpg", "ashejuniper_1.jpg", "oak_bark_2.jpg", "Juniperus"),
+    ("texas_ash", "texasash_0.jpg", "texasash_1.jpg", "oak_bark_3.jpg", "Fraxinus"),
+    ("urban_live_oak", "urban_quercus_0.jpg", "urban_quercus_1.jpg", "oak_bark_0.jpg", "Quercus"),
+    ("urban_cedar_elm", "urban_ulmus_0.jpg", "urban_ulmus_1.jpg", "oak_bark_1.jpg", "Ulmus"),
+    ("urban_crepe_myrtle", "urban_lagerstroemia_0.jpg", "urban_lagerstroemia_1.jpg", "oak_bark_2.jpg", "Lagerstroemia"),
 ]
 
 
