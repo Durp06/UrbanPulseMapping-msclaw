@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: postgis/postgis:16-3.4-alpine
+    image: postgis/postgis:16-3.4
+    platform: linux/arm64
     ports: ["5432:5432"]
     environment:
       POSTGRES_DB: urban_pulse_dev

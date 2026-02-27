@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,13 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn, signInWithApple, signInWithGoogle, isAuthenticated } = useAuth();
+
+  // Auto-login in dev mode
+  useEffect(() => {
+    if (__DEV__ && !isAuthenticated) {
+      signIn('dev@test.com', 'dev123').catch(() => {});
+    }
+  }, []);
 
   // Redirect to home if already authenticated
   if (isAuthenticated) {
