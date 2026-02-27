@@ -223,13 +223,18 @@ export async function updateObservationAIResult(
       crownWidthFt?: number | null;
       numStems?: number;
     } | null;
-    heightEstimateM?: number | null;
-    canopySpreadM?: number | null;
-    crownDieback?: boolean | null;
-    trunkDefects?: { cavity: boolean; crack: boolean; lean: boolean } | null;
-    riskFlag?: boolean | null;
-    mulchSoilCondition?: string | null;
-    sidewalkDamage?: boolean | null;
+    site?: {
+      conditionRating?: string | null;
+      crownDieback?: boolean | null;
+      trunkDefects?: string[] | null;
+      locationType?: string | null;
+      siteType?: string | null;
+      overheadUtilityConflict?: boolean | null;
+      maintenanceFlag?: string | null;
+      sidewalkDamage?: boolean | null;
+      mulchSoilCondition?: string | null;
+      riskFlag?: boolean | null;
+    } | null;
   }
 ) {
   const obs = await db
@@ -251,14 +256,25 @@ export async function updateObservationAIResult(
     updatedAt: new Date(),
   };
 
-  // Level 1 AI fields on observation
-  if (aiResult.heightEstimateM !== undefined) obsUpdates.heightEstimateM = aiResult.heightEstimateM;
-  if (aiResult.canopySpreadM !== undefined) obsUpdates.canopySpreadM = aiResult.canopySpreadM;
-  if (aiResult.crownDieback !== undefined) obsUpdates.crownDieback = aiResult.crownDieback;
-  if (aiResult.trunkDefects !== undefined) obsUpdates.trunkDefects = aiResult.trunkDefects;
-  if (aiResult.riskFlag !== undefined) obsUpdates.riskFlag = aiResult.riskFlag;
-  if (aiResult.mulchSoilCondition !== undefined) obsUpdates.mulchSoilCondition = aiResult.mulchSoilCondition;
-  if (aiResult.sidewalkDamage !== undefined) obsUpdates.sidewalkDamage = aiResult.sidewalkDamage;
+  // Site assessment AI fields on observation
+  if (aiResult.site) {
+    const s = aiResult.site;
+    if (s.conditionRating != null) obsUpdates.conditionRating = s.conditionRating;
+    if (s.crownDieback != null) obsUpdates.crownDieback = s.crownDieback;
+    if (s.trunkDefects != null) obsUpdates.trunkDefects = s.trunkDefects;
+    if (s.locationType != null) obsUpdates.locationType = s.locationType;
+    if (s.siteType != null) obsUpdates.siteType = s.siteType;
+    if (s.overheadUtilityConflict != null) obsUpdates.overheadUtilityConflict = s.overheadUtilityConflict;
+    if (s.maintenanceFlag != null) obsUpdates.maintenanceFlag = s.maintenanceFlag;
+    if (s.sidewalkDamage != null) obsUpdates.sidewalkDamage = s.sidewalkDamage;
+    if (s.mulchSoilCondition != null) obsUpdates.mulchSoilCondition = s.mulchSoilCondition;
+    if (s.riskFlag != null) obsUpdates.riskFlag = s.riskFlag;
+  }
+  // Also map measurements to Level 1 fields
+  if (aiResult.measurements) {
+    obsUpdates.heightEstimateM = aiResult.measurements.heightM;
+    if (aiResult.measurements.crownWidthM != null) obsUpdates.canopySpreadM = aiResult.measurements.crownWidthM;
+  }
 
   await db
     .update(schema.observations)
@@ -309,14 +325,25 @@ export async function updateObservationAIResult(
         if (aiResult.measurements.numStems) updates.numStems = aiResult.measurements.numStems;
       }
 
-      // Level 1 AI-estimated fields on tree
-      if (aiResult.heightEstimateM !== undefined) updates.heightEstimateM = aiResult.heightEstimateM;
-      if (aiResult.canopySpreadM !== undefined) updates.canopySpreadM = aiResult.canopySpreadM;
-      if (aiResult.crownDieback !== undefined) updates.crownDieback = aiResult.crownDieback;
-      if (aiResult.trunkDefects !== undefined) updates.trunkDefects = aiResult.trunkDefects;
-      if (aiResult.riskFlag !== undefined) updates.riskFlag = aiResult.riskFlag;
-      if (aiResult.mulchSoilCondition !== undefined) updates.mulchSoilCondition = aiResult.mulchSoilCondition;
-      if (aiResult.sidewalkDamage !== undefined) updates.sidewalkDamage = aiResult.sidewalkDamage;
+      // Site assessment fields on tree
+      if (aiResult.site) {
+        const s = aiResult.site;
+        if (s.conditionRating != null) updates.conditionRating = s.conditionRating;
+        if (s.crownDieback != null) updates.crownDieback = s.crownDieback;
+        if (s.trunkDefects != null) updates.trunkDefects = s.trunkDefects;
+        if (s.locationType != null) updates.locationType = s.locationType;
+        if (s.siteType != null) updates.siteType = s.siteType;
+        if (s.overheadUtilityConflict != null) updates.overheadUtilityConflict = s.overheadUtilityConflict;
+        if (s.maintenanceFlag != null) updates.maintenanceFlag = s.maintenanceFlag;
+        if (s.sidewalkDamage != null) updates.sidewalkDamage = s.sidewalkDamage;
+        if (s.mulchSoilCondition != null) updates.mulchSoilCondition = s.mulchSoilCondition;
+        if (s.riskFlag != null) updates.riskFlag = s.riskFlag;
+      }
+      // Map measurements to Level 1 tree fields
+      if (aiResult.measurements) {
+        updates.heightEstimateM = aiResult.measurements.heightM;
+        if (aiResult.measurements.crownWidthM != null) updates.canopySpreadM = aiResult.measurements.crownWidthM;
+      }
 
       await db
         .update(schema.trees)

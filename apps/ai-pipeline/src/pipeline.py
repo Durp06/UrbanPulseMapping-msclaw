@@ -16,6 +16,7 @@ from src.clients.storage import (
 from src.analyzers.species import analyze_species, SpeciesResult
 from src.analyzers.health import analyze_health, HealthResult
 from src.analyzers.measurements import analyze_measurements, MeasurementResult
+from src.analyzers.site import analyze_site, SiteResult
 from src.utils.quality import filter_quality_photos
 
 logger = logging.getLogger(__name__)
@@ -26,27 +27,30 @@ MAX_RETRIES = 3
 
 @dataclass
 class AIResult:
-    """Full AI analysis result matching the API contract (Section 3)."""
+    """Full AI analysis result matching the API contract."""
 
     species: dict | None = None
     health: dict | None = None
     measurements: dict | None = None
+    site: dict | None = None
 
 
 def _build_ai_result(
     species: SpeciesResult | None,
     health: HealthResult | None,
     measurements: MeasurementResult | None,
+    site: SiteResult | None,
 ) -> AIResult:
-    """Assemble the AIResult payload matching the Zod schema.
+    """Assemble the AIResult payload.
 
     Args:
         species: Species identification result.
         health: Health assessment result.
         measurements: Physical measurement result.
+        site: Site/inspection assessment result.
 
     Returns:
-        AIResult with properly formatted dicts.
+        AIResult with properly formatted dicts. Unfillable fields are null.
     """
     species_dict = None
     if species:
@@ -79,10 +83,26 @@ def _build_ai_result(
             "numStems": measurements.num_stems,
         }
 
+    site_dict = None
+    if site:
+        site_dict = {
+            "conditionRating": site.condition_rating,
+            "crownDieback": site.crown_dieback,
+            "trunkDefects": site.trunk_defects if site.trunk_defects else [],
+            "locationType": site.location_type,
+            "siteType": site.site_type,
+            "overheadUtilityConflict": site.overhead_utility_conflict,
+            "maintenanceFlag": site.maintenance_flag,
+            "sidewalkDamage": site.sidewalk_damage,
+            "mulchSoilCondition": site.mulch_soil_condition,
+            "riskFlag": site.risk_flag,
+        }
+
     return AIResult(
         species=species_dict,
         health=health_dict,
         measurements=measurements_dict,
+        site=site_dict,
     )
 
 
@@ -110,6 +130,7 @@ async def post_ai_result(
         "species": result.species,
         "health": result.health,
         "measurements": result.measurements,
+        "site": result.site,
     }
 
     last_error: Exception | None = None
@@ -136,7 +157,7 @@ async def post_ai_result(
                     "Auth failed posting AI result (check INTERNAL_API_KEY): %d",
                     e.response.status_code,
                 )
-                return False  # Don't retry auth failures
+                return False
             if e.response.status_code >= 500:
                 logger.warning(
                     "Server error %d posting AI result (attempt %d/%d)",
@@ -170,7 +191,7 @@ async def run_pipeline(observation_id: str, pool) -> bool:
     """Run the full AI pipeline for an observation.
 
     1. Fetch observation + photos from DB/MinIO
-    2. Run species + health analyzers in parallel
+    2. Run species + health + site analyzers in parallel
     3. Run measurements (after species, for allometric context)
     4. Assemble and POST results
 
@@ -214,9 +235,10 @@ async def run_pipeline(observation_id: str, pool) -> bool:
         )
         return False
 
-    # Step 2: Run species + health in parallel
+    # Step 2: Run species + health + site in parallel
     species_result: SpeciesResult | None = None
     health_result: HealthResult | None = None
+    site_result: SiteResult | None = None
 
     async def _run_species():
         nonlocal species_result
@@ -230,17 +252,22 @@ async def run_pipeline(observation_id: str, pool) -> bool:
         nonlocal health_result
         health_result = await analyze_health(photos)
 
-    await asyncio.gather(_run_species(), _run_health())
+    async def _run_site():
+        nonlocal site_result
+        site_result = await analyze_site(photos)
+
+    await asyncio.gather(_run_species(), _run_health(), _run_site())
 
     # Step 3: Run measurements (after species for allometric context)
     species_name = species_result.scientific if species_result else None
     measurement_result = await analyze_measurements(photos, species_scientific=species_name)
 
     # Step 4: Assemble and POST
-    ai_result = _build_ai_result(species_result, health_result, measurement_result)
+    ai_result = _build_ai_result(species_result, health_result, measurement_result, site_result)
 
     # Check if we got anything useful
-    if ai_result.species is None and ai_result.health is None and ai_result.measurements is None:
+    if (ai_result.species is None and ai_result.health is None
+            and ai_result.measurements is None and ai_result.site is None):
         logger.error(
             "All analyses failed for observation %s — nothing to post",
             observation_id,
@@ -248,11 +275,12 @@ async def run_pipeline(observation_id: str, pool) -> bool:
         return False
 
     logger.info(
-        "Pipeline results for %s: species=%s, health=%s, measurements=%s",
+        "Pipeline results for %s: species=%s, health=%s, measurements=%s, site=%s",
         observation_id,
         "✓" if ai_result.species else "✗",
         "✓" if ai_result.health else "✗",
         "✓" if ai_result.measurements else "✗",
+        "✓" if ai_result.site else "✗",
     )
 
     success = await post_ai_result(observation_id, ai_result)
