@@ -1,6 +1,6 @@
 # 🌳 Urban Pulse Mapping
 
-Crowdsourced urban tree inventory. Citizens photograph trees, the app geotags and uploads photos, and the data feeds into a municipal-grade tree database. Cities buy this data to track canopy coverage, verify tree plantings, and meet climate goals.
+Crowdsourced urban tree inventory. Citizens photograph trees, the app geotags and uploads photos, and the data feeds into a municipal-grade tree database. Cities buy this data to track canopy coverage, verify tree plantings, and meet climate goals. 
 
 ![React Native](https://img.shields.io/badge/React_Native-Expo_SDK_52-blue?logo=expo)
 ![Fastify](https://img.shields.io/badge/API-Fastify_v4-black?logo=fastify)
